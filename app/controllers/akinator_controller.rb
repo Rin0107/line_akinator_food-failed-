@@ -1,0 +1,2 @@
+class AkinatorController < ApplicationController
+end

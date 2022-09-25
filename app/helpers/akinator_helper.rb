@@ -1,0 +1,2 @@
+module AkinatorHelper
+end
