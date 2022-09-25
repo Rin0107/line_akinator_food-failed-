@@ -86,6 +86,7 @@ GEM
     jbuilder (2.11.5)
       actionview (>= 5.0.0)
       activesupport (>= 5.0.0)
+    line-bot-api (1.25.0)
     loofah (2.19.0)
       crass (~> 1.0.2)
       nokogiri (>= 1.5.9)
@@ -194,6 +195,7 @@ DEPENDENCIES
   coffee-rails (~> 4.2)
   duktape
   jbuilder (~> 2.5)
+  line-bot-api
   puma (~> 3.11)
   rails (~> 5.2.8, >= 5.2.8.1)
   sass-rails (~> 5.0)
