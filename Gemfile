@@ -56,4 +56,8 @@ end
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 
+# LINEのAPI使用のためのgem
 gem 'line-bot-api'
+
+# .envファイルを使って環境変数を管理できるgem
+gem 'dotenv-rails'

@@ -29,3 +29,6 @@
 
 # Ignore master key for decrypting credentials and more.
 /config/master.key
+
+# .envファイルに記述した情報は外部には公開したくない情報なので、githubなどのリモートリポジトリへアップロードしないように
+/.env
