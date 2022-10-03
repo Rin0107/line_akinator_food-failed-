@@ -16,8 +16,11 @@ class AkinatorController < ApplicationController
                 # ?formのitemsを繰り返しitemに代入し、MessageActionの引数label, textにitemを代入して、QuickReplyButtonの引数actionに代入して、
                 # itemsに上記を代入
                 message = TextSendMessage(text=form.text, quick_reply=QuickReply(items=items))
+            end
             reply_content.append(message)
-        return reply_content
+            return reply_content
+        end
+    end
 
     def food
         body = request.body.read
@@ -41,14 +44,11 @@ class AkinatorController < ApplicationController
                             # 受け取ったメッセージの文字列をmessageに代入
                             user_id = event.source['userId']
                             # eventのsourceからuseridを取得し、user_idに代入
-                            response = client.get_profile(user_id)
+                            profile = client.get_profile(user_id)
                             # clientのget_profileメソッドの引数にuser_idを代入、このままだとjson形式の文？
-                            case response
-                                when Net::HTTPSuccess
-                                contact = JSON.parse(response.body)
-                                # json形式のresponseを連想配列に変換
-                                p "Receives message:#{message} from #{contact['displayName']}."
-                            end
+                            profile = JSON.parse(profile.read_body)
+                            # json形式のresponseを連想配列に変換
+                            p "Receives message:#{message} from #{profile['displayName']}."
                             
                             user_status = get_user_status(user_id)
                             # UserStatusのインスタンスを引数user_idで照合して、存在しなかった場合作成して、返り値はUserStatusインスタンス
@@ -59,7 +59,7 @@ class AkinatorController < ApplicationController
                             reply_content = akinator_handler(user_status, message)
                             # akinator_handler（メソッド）に引数user_status, messageを渡し、返り値は配列[(text, items)]
                             reply_content = convert_form_to_message(reply_content)
-                            # reply_content = 配列[(TextSendMessage)]
+                            # reply_content = 
                             client.reply_message(event['replyToken'], reply_content)
                             # Messaging APIでは各メッセージに応答トークンという識別子がある
                             # reply_messageの引数はreplyTokenとtype:textのtext:内容
