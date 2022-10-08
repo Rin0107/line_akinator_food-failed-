@@ -119,10 +119,21 @@ class AkinatorController < ApplicationController
         return reply_content
     end
 
-    def set_butten_template(thumbnailImageUrl, altText=None, title, text)
+    def set_butten_template(altText, title, text)
         reply_content = {
-            type
-        }
+            type: 'template',
+            altText: altText,
+            template: {
+                type: 'buttons',
+                text: title,
+                actions: [
+                    {
+                    type: 'message',
+                    label: text,
+                    text: text
+                    }
+                ]
+            }
     end
 
     # GameStatusがPendingの場合akinator_handlerで呼び出されるメソッド、引数はUserStatus, message、返り値は配列[(text, items)]
@@ -140,8 +151,8 @@ class AkinatorController < ApplicationController
             set_confirm_template(question)
             # ser_confirm_templateでquestion.messageに対して「はい」「いいえ」の確認テンプレートを作成、返り値はreply_content={}
         else:
-            reply_content.push(QuickMessageForm(text="「はじめる」をタップ！", items=["はじめる"]))
-            # ?QuickMessageFormクラスに引数を渡してインスタンスを作り、reply_contentの配列に追加
+            set_butten_template(altText: "今日は何食べる？", title: "「はじめる」をタップ！", text: "はじめる")
+            # set_butten_templateでtitleのvalueをテキストに、textのvalueをボタンにする。
         end
         return reply_content  
     end
