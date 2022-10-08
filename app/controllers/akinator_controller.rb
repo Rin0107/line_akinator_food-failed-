@@ -9,6 +9,7 @@ class AkinatorController < ApplicationController
         logger.warn res.read_body unless Net::HTTPOK === res
         res
       end
+    end
 
     def food
         body = request.body.read
