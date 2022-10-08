@@ -52,6 +52,17 @@ class AkinatorController < ApplicationController
     }
 
     def handle_message(event, user_id)
+        if event.message['text'] == "終了"
+            # 途中終了するときの処理
+            message = {
+                type: 'text'
+                text: "今回は終了しました。また遊ぶときは「はじめる」と打ってね！"
+            }
+            reply_content(event, message)
+            user_status = get_user_status(user_id)
+            reset_status(user_status)
+        end
+
         case event.type
         when Line::Bot::Event::MessageType::Text
             message = event.message['text']
@@ -88,9 +99,9 @@ class AkinatorController < ApplicationController
         reply_content = []
         # 空の配列を作成
         if message == "はじめる":
-            user_status.progress = Progress()
-            # Progressをnewして、UserStatusのprogressに代入
-            user_status.progress.candidates = Solution.query.all()
+            user_status.progress = Progress.create()
+            # Progressをcreateして、UserStatusのprogressに代入
+            user_status.progress.candidates = Solution.all()
             # Solutionの行を全て取得し（選択肢を全て取得）、UserStatusのprogressのcandidatesに代入
             question = select_next_question(user_status.progress)
             # 上で定義したselect_next_questionメソッド（返り値はq_score_tableのfeature.valueが最小のQuestionインスタンス）を呼び出しquestionに代入
