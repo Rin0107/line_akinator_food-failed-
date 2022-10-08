@@ -134,6 +134,8 @@ class AkinatorController < ApplicationController
                     }
                 ]
             }
+        }
+        return reply_content
     end
 
     # GameStatusがPendingの場合akinator_handlerで呼び出されるメソッド、引数はUserStatus, message、返り値は配列[(text, items)]
@@ -148,10 +150,10 @@ class AkinatorController < ApplicationController
             save_status(user_status, 'asking', question)
             # 上で定義したsave_statusメソッドを呼び出す（引数は、UserStatusインスタンス, GameState, Questionインスタンス）
             # ?'asking'で指定できるのか？番号の必要あり？
-            set_confirm_template(question)
+            reply_content = set_confirm_template(question)
             # ser_confirm_templateでquestion.messageに対して「はい」「いいえ」の確認テンプレートを作成、返り値はreply_content={}
         else:
-            set_butten_template(altText: "今日は何食べる？", title: "「はじめる」をタップ！", text: "はじめる")
+            reply_content = set_butten_template(altText: "今日は何食べる？", title: "「はじめる」をタップ！", text: "はじめる")
             # set_butten_templateでtitleのvalueをテキストに、textのvalueをボタンにする。
         end
         return reply_content  
