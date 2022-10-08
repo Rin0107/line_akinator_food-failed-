@@ -94,10 +94,39 @@ class AkinatorController < ApplicationController
         return user_status
     end
 
+    def set_confirm_template(question)
+        text = question.message
+        reply_content = {
+            type: 'template',
+            altText: "「はい」か「いいえ」をタップ。",
+            template: {
+              type: 'confirm',
+              text: text + "\n途中で終わる場合は「終了」と打って下さい。",
+              actions: [
+                {
+                  type: 'message',
+                  label: "はい",
+                  text: "はい"
+                },
+                {
+                  type: 'message',
+                  label: "いいえ",
+                  text: "いいえ"
+                }
+              ]
+            }
+        }
+        return reply_content
+    end
+
+    def set_butten_template(thumbnailImageUrl, altText=None, title, text)
+        reply_content = {
+            type
+        }
+    end
+
     # GameStatusがPendingの場合akinator_handlerで呼び出されるメソッド、引数はUserStatus, message、返り値は配列[(text, items)]
     def handle_pending(user_status, message):
-        reply_content = []
-        # 空の配列を作成
         if message == "はじめる":
             user_status.progress = Progress.create()
             # Progressをcreateして、UserStatusのprogressに代入
@@ -105,12 +134,13 @@ class AkinatorController < ApplicationController
             # Solutionの行を全て取得し（選択肢を全て取得）、UserStatusのprogressのcandidatesに代入
             question = select_next_question(user_status.progress)
             # 上で定義したselect_next_questionメソッド（返り値はq_score_tableのfeature.valueが最小のQuestionインスタンス）を呼び出しquestionに代入
-            save_status(user_status, GameState.ASKING, question)
+            save_status(user_status, 'asking', question)
             # 上で定義したsave_statusメソッドを呼び出す（引数は、UserStatusインスタンス, GameState, Questionインスタンス）
-            reply_content.append(QuickMessageForm(text=question.message, items=["はい", "いいえ"]))
-            # ?QuickMessageFormクラスに引数を渡してインスタンスを作り、reply_contentの配列に追加
+            # ?'asking'で指定できるのか？番号の必要あり？
+            set_confirm_template(question)
+            # ser_confirm_templateでquestion.messageに対して「はい」「いいえ」の確認テンプレートを作成、返り値はreply_content={}
         else:
-            reply_content.append(QuickMessageForm(text="「はじめる」をタップ！", items=["はじめる"]))
+            reply_content.push(QuickMessageForm(text="「はじめる」をタップ！", items=["はじめる"]))
             # ?QuickMessageFormクラスに引数を渡してインスタンスを作り、reply_contentの配列に追加
         end
         return reply_content  
