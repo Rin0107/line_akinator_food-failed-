@@ -42,6 +42,14 @@ class AkinatorController < ApplicationController
         head :ok
     end
 
+    akinator_handler_table = {
+        pending: handle_pending,
+        asking: handle_asking,
+        guessing: handle_guessing,
+        resuming: handle_resuming,
+        begging: handle_begging
+    }
+
     def handle_message(event, user_id)
         case event.type
         when Line::Bot::Event::MessageType::Text
@@ -56,6 +64,7 @@ class AkinatorController < ApplicationController
             reply_content = akinator_handler(user_status, message)
             # akinator_handler（メソッド）に引数user_status, messageを渡し、返り値は連想配列{}
             reply_content(event, reply_content)
+            # reply_contentメソッドを呼び出し
             # Messaging APIでは各メッセージに応答トークンという識別子がある
             # reply_messageの引数はreplyTokenとtype:textのtext:内容
         else
