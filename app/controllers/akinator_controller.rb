@@ -2,12 +2,12 @@ class AkinatorController < ApplicationController
     protect_from_forgery except: [:food]
 
     def reply_content(event, messages)
-        res = client.reply_message(
+        rep = client.reply_message(
           event['replyToken'],
           messages
         )
-        logger.warn res.read_body unless Net::HTTPOK === res
-        res
+        logger.warn rep.read_body unless Net::HTTPOK === rep
+        rep
       end
     end
 
@@ -36,8 +36,8 @@ class AkinatorController < ApplicationController
             p "Receives message:#{message} from #{profile['displayName']}."
 
             case event
-                when Line::Bot::Event::Message
-                    handle_message(event, user_id)
+            when Line::Bot::Event::Message
+                handle_message(event, user_id)
             end
         end
         head :ok
@@ -60,7 +60,7 @@ class AkinatorController < ApplicationController
             # UserStatusのインスタンスを引数user_idで照合して、存在しなかった場合作成して、返り値はUserStatusインスタンス
             status = user_status.status
             # UserStatusを作成した時、user_status.statusは'pending'
-            akinator_handler = akinator_handler_table.get(status)
+            akinator_handler = akinator_handler_table.fetch(:status)
             # status（'pending'）を引数に、akinator_handler_tableからvalue（メソッド）を取得し、代入
             reply_content = akinator_handler(user_status, message)
             # akinator_handler（メソッド）に引数user_status, messageを渡し、返り値は連想配列{}
@@ -68,10 +68,41 @@ class AkinatorController < ApplicationController
             # reply_contentメソッドを呼び出し
             # Messaging APIでは各メッセージに応答トークンという識別子がある
             # reply_messageの引数はreplyTokenとtype:textのtext:内容
-        else
-            
         end
-        
+    end
+
+    def get_user_status(user_id)
+        user_stauts = UserStatus.find_by(user_id: user_id)
+        # user_idを受け取り、UserStatusインスタンスを検索して、sessionに情報を保存
+        if user_status.nil?
+            # 照合して存在してない場合
+            user_status = UserStatus.create(user_id: user_id)
+            # UserStatusのstatusはモデルでカラムをenum型に定義し、defaultで0='pending'としておく
+        end
+        session[:user_status] = user_status
+        return user_status
+    end
+
+    # GameStatusがPendingの場合akinator_handlerで呼び出されるメソッド、引数はUserStatus, message、返り値は配列[(text, items)]
+    def handle_pending(user_status, message):
+        reply_content = []
+        # 空の配列を作成
+        if message == "はじめる":
+            user_status.progress = Progress()
+            # Progressをnewして、UserStatusのprogressに代入
+            user_status.progress.candidates = Solution.query.all()
+            # Solutionの行を全て取得し（選択肢を全て取得）、UserStatusのprogressのcandidatesに代入
+            question = select_next_question(user_status.progress)
+            # 上で定義したselect_next_questionメソッド（返り値はq_score_tableのfeature.valueが最小のQuestionインスタンス）を呼び出しquestionに代入
+            save_status(user_status, GameState.ASKING, question)
+            # 上で定義したsave_statusメソッドを呼び出す（引数は、UserStatusインスタンス, GameState, Questionインスタンス）
+            reply_content.append(QuickMessageForm(text=question.message, items=["はい", "いいえ"]))
+            # ?QuickMessageFormクラスに引数を渡してインスタンスを作り、reply_contentの配列に追加
+        else:
+            reply_content.append(QuickMessageForm(text="「はじめる」をタップ！", items=["はじめる"]))
+            # ?QuickMessageFormクラスに引数を渡してインスタンスを作り、reply_contentの配列に追加
+        end
+        return reply_content  
     end
 
     private
