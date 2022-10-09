@@ -331,7 +331,7 @@ class AkinatorController < ApplicationController
         return reply_content  
     end
 
-    # GameStatusがAskingの場合akinator_handlerで呼び出されるメソッド、引数はUserStatus, message、返り値は配列[(text, items)]
+    # GameStatusがAskingの場合akinator_handlerで呼び出されるメソッド、引数はUserStatus, message、返り値はreply_content
     def handle_asking(user_status, message)
         if ["はい", "いいえ"].include?(message)
             # ["はい", "いいえ"]がmessageに含まれる場合
@@ -368,6 +368,31 @@ class AkinatorController < ApplicationController
             # ["はい", "いいえ"]がmessageに含まれない場合
             question = select_next_question(user_status.progress)
             reply_content = set_confirm_template("「はい」か「いいえ」で答えてね！\n#{question.message}")
+        return reply_content
+    end
+
+    # handle_askingで選択肢が変わらなかった場合にGameStateがGuessingとなり呼び出されるメソッド
+    # 引数はUserStatus, message、返り値はreply_content
+    def handle_guessing(user_status, message)
+        if message == "はい"
+            # most_likely_solutionが当たった場合
+            reply_content = {
+                type: 'text'
+                text: "じゃあ、それ食べに行こう！"
+            }
+            update_features(user_status.progress)
+            # 正解の選択肢が見つかったので、その選択肢のFeature.valueを今回の回答に更新し、新しくQuestionとFeatureがあった場合は新規作成
+            reset_status(user_status)
+            # 今回のAnswerとUserStatusのprogressを全て削除
+        elsif message == "いいえ"
+            # most_likely_solutionが当たった場合
+            reply_content = set_confirm_template("ありゃ、ごめん！もう一回やってもいい？")
+            save_status(user_status, 'resuming')
+            # UserStatusは変わらないが、GameStateをGUESSINGからRESUMINGに更新
+        else
+            # ["はい", "いいえ"]がmessageに含まれない場合
+            reply_content = set_confirm_template("「はい」か「いいえ」で教えてね！\nもう一回やってもいい？")
+        end
         return reply_content
     end
 
