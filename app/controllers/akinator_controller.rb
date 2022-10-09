@@ -130,7 +130,7 @@ class AkinatorController < ApplicationController
         end
         q_score_table = q_score_table.each{|key, value| {key: abs(value)}}
         # q_score_tableのvalueを絶対値に。valueが大きい→その質問に対して選択肢は似た回答を持つ→その質問をしてもあまり絞り込めない、となる連想配列が完成
-        print("[select_next_question] q_score_table=> ", q_score_table)
+        p ("[select_next_question] q_score_table=> ", q_score_table)
         next_q_id = q_score_table.min{|x, y| x[1] <=> y[1]}
         # 最も絶対値が小さいquestionということは、その質問の回答が分かれる→その質問の回答によって選択肢が多く絞り込まれる。
         # rubyのmin,maxは、hashの場合、x=>[key,value], y=>[key,value] hash.eachだと、|x, y|と書くと、x=>key, y=>valueなのに…
@@ -139,7 +139,7 @@ class AkinatorController < ApplicationController
     end
 
     # UserStatusを更新してsave
-    def save_status(user_status, new_status=None, next_question=None)
+    def save_status(user_status, new_status=nil, next_question=nil)
         if new_status
             # new_statusが存在する場合
             user_status.update(status: new_status)
@@ -184,7 +184,7 @@ class AkinatorController < ApplicationController
         end
         s_score_table = s_score_table.sort{|x, y| x[1]<=>y[1]}.to_h
         # s_score_tableをvalueで昇順に並び替えて、ハッシュに戻す
-        print("s_score_table: ", s_score_table)
+        p ("s_score_table: ", s_score_table)
         return s_score_table
     end
 
@@ -237,7 +237,7 @@ class AkinatorController < ApplicationController
 
     # 正解の場合等に呼び出されるメソッド。正解の選択肢が見つかった場合、今回の回答は全てその正解の選択肢のfeatureと考えられる。
     # なので、今回の質問と回答が正解の選択肢のQuestion_id,Feature_valueとして保持されている場合は更新し、保持されていない場合は新規作成する。 
-    def update_features(progress, true_solution=None)
+    def update_features(progress, true_solution=nil)
         solution = true_solution or guess_solution(gen_solution_score_table(progress))
         # true_solution又は、正解した時点のs_score_tableの最も可能性の高いSolutionインスタンス（正解）をsolutionに代入
         qid_feature_table = solution.features.each{|f| {f.question_id: f}}
@@ -267,14 +267,13 @@ class AkinatorController < ApplicationController
         end
     end
 
-    def set_confirm_template(question)
-        text = question.message
+    def set_confirm_template(question_message)
         reply_content = {
             type: 'template',
             altText: "「はい」か「いいえ」をタップ。",
             template: {
               type: 'confirm',
-              text: text + "\n途中で終わる場合は「終了」と打って下さい。",
+              text: question_message + "\n途中で終わる場合は「終了」と打って！",
               actions: [
                 {
                   type: 'message',
@@ -323,13 +322,53 @@ class AkinatorController < ApplicationController
             save_status(user_status, 'asking', question)
             # 上で定義したsave_statusメソッドを呼び出す（引数は、UserStatusインスタンス, GameState, Questionインスタンス）
             # ?'asking'で指定できるのか？番号の必要あり？
-            reply_content = set_confirm_template(question)
+            reply_content = set_confirm_template(question.message)
             # ser_confirm_templateでquestion.messageに対して「はい」「いいえ」の確認テンプレートを作成、返り値はreply_content={}
         else
             reply_content = set_butten_template(altText: "今日何食べる？", title: "「はじめる」をタップ！", text: "はじめる")
             # set_butten_templateでtitleのvalueをテキストに、textのvalueをボタンにする。
         end
         return reply_content  
+    end
+
+    # GameStatusがAskingの場合akinator_handlerで呼び出されるメソッド、引数はUserStatus, message、返り値は配列[(text, items)]
+    def handle_asking(user_status, message)
+        if ["はい", "いいえ"].include?(message)
+            # ["はい", "いいえ"]がmessageに含まれる場合
+            push_answer(user_status.progress, message)
+            # UserStatusのprogressとmessageを引数に、AnswerをProgress、セッションにpush
+            old_s_score_table = gen_solution_score_table(user_status.progress)
+            # 現在のs_score_tableをold_s_score_tableに代入
+            # これで、ProgressのAnswerが変わり、現在のスコアを古いものとして代入したので、s_score_tableを変更する準備が整った
+            user_status.progress.candidates = update_candidates(old_s_score_table)
+            # update_candidatesメソッドでSolution.valueの平均以上の選択肢を取得し、Progressのcandidatesが更新された
+            user_status.progress.candidates.each do |c|
+                p ("candidate=> id: #{c.id}, name: #{c.name}")
+                # ?候補：id:, name:""でプリント
+            end
+            s_score_table = gen_solution_score_table(user_status.progress)
+            # Progressのcandidatesが更新された状態の現在のs_score_tableをs_score_tableに代入
+            if can_decide(s_score_table, old_s_score_table).blank?
+                # s_score_tableとold_s_score_tableを比較したりして、選択肢が変わった場合（返り値がtrueで無い場合）
+                question = select_next_question(user_status.progress)
+                save_status(user_status, next_question=question)
+                reply_content = set_confirm_template(question.message)
+                # ser_confirm_templateでquestion.messageに対して「はい」「いいえ」の確認テンプレートを作成、返り値はreply_content={}
+            else
+                # 選択肢が変わらなかった場合（返り値がtrueの場合）
+                most_likely_solution = guess_solution(s_score_table)
+                # 現在のs_score_tanleを引数に、最もAnswersとFeatureが近いSolutionを取得して代入
+                question_message = "思い浮かべているのは\n\n" + most_likely_solution.name + "\n\nですか?"
+                save_status(user_status, 'guessing')
+                # GameStateをGuessingにして、save_status
+                reply_content = set_confirm_template(question_message)
+                # ser_confirm_templateでquestion_messageに対して「はい」「いいえ」の確認テンプレートを作成、返り値はreply_content={}
+            end
+        else
+            # ["はい", "いいえ"]がmessageに含まれない場合
+            question = select_next_question(user_status.progress)
+            reply_content = set_confirm_template("「はい」か「いいえ」で答えてね！\n#{question.message}")
+        return reply_content
     end
 
     private
