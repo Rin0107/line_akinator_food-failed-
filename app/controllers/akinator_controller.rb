@@ -150,7 +150,7 @@ class AkinatorController < ApplicationController
     end
 
     # UserStatusのstatusをリセットする
-    def reset_status(user_status):
+    def reset_status(user_status)
         user_status.progress.answers.destroy_all
         # Answerテーブルのprogress_idレコードがUserのprogress.idと合致するAnswerテーブルの行を削除
         # つまり、今回のUserのAnswerを全て削除
@@ -163,7 +163,7 @@ class AkinatorController < ApplicationController
 
     # 現の選択肢のスコアテーブル、引数はUserStatusのprogress
     # 返り値はvalueが小さい順の連想配列s_score_table
-    def gen_solution_score_table(progress):
+    def gen_solution_score_table(progress)
         s_score_table = progress.candidates.each{|s| {s.id: 0.0}}
         # solutionのスコアテーブルとして、Progressのcandidatesレコード（Solutionの行になる？）を繰り返しsに代入して、Solutionのidをキーに。
         # valueは全て0.0（select_next_questionと同じ手法）
@@ -210,7 +210,7 @@ class AkinatorController < ApplicationController
     end
 
     # AnswerをProgress、セッションにpush、引数はprogress, answer_msg
-    def push_answer(progress, answer_msg):
+    def push_answer(progress, answer_msg)
         answer = Answer.create()
         # Answerをcreateしてanswerに代入
         answer.question = progress.latest_question
@@ -230,9 +230,41 @@ class AkinatorController < ApplicationController
     end
 
     # s_score_tableから、現在最もAnswerとFeatureが近いSolutionを取得、引数はs_score_table、返り値はSolutionインスタンス
-    def guess_solution(s_score_table):
+    def guess_solution(s_score_table)
         return Solution.find(s_score_table.max{|x, y| x[1] <=> y[1]})
         # s_score_tableのvalueが最大値のs.idを取得し、該当のSolutionの行を取得
+    end
+
+    # 正解の場合等に呼び出されるメソッド。正解の選択肢が見つかった場合、今回の回答は全てその正解の選択肢のfeatureと考えられる。
+    # なので、今回の質問と回答が正解の選択肢のQuestion_id,Feature_valueとして保持されている場合は更新し、保持されていない場合は新規作成する。 
+    def update_features(progress, true_solution=None)
+        solution = true_solution or guess_solution(gen_solution_score_table(progress))
+        # true_solution又は、正解した時点のs_score_tableの最も可能性の高いSolutionインスタンス（正解）をsolutionに代入
+        qid_feature_table = solution.features.each{|f| {f.question_id: f}}
+        # 正解のsolutionのfeaturesをfに繰り返し代入し、キー：そのquestion_id、value：そのvalueとした連想配列をqid_feature_tableに代入
+        progress.answer.each do |ans|
+            # progressのanswersを繰り返しansに代入し、
+            if qid_feature_table.key?(ans.question_id)
+                # もし、ansのquestion_idがqid_feature_tableに含まれていれば
+                # （つまり、正解のsolutionのfeaturesを導いた質問の中に、これまでの回答が含まれている場合）
+                feature = qid_feature_table[ans.question_id]
+                # キーがans.question_idであるqid_featuer_tableのvalueをfeatureに代入
+                # （つまり、正解のFeatureのvalueを回答のvalueに更新するために、
+                # これまでの回答の中の一つの質問とQuestionのidが一致する、正解のsolutionのfeature.valueをfeatureに代入）
+            else
+                # それ以外の場合（つまり、正解のsolutionのfeaturesを導いた質問の中に、これまでの回答が含まれていない場合）
+                # つまり、どこかのタイミングで新しくできた質問を今回答え、新しくできた質問に対応するfeature.valueが今回の正解の選択肢になかった場合
+                feature = Feature.create()
+                # Featureをcreateして
+                feature.question_id = ans.question_id
+                # これまでの回答のQuestion.idを新しいFeature.question_idに代入
+                feature.solution_id = solution.id
+                # true_solution?又は、現在のs_score_tableの最も可能性の高いSolutionインスタンスのidを新しいFeature.solution_idに代入
+                feature.value = ans.value
+                # これまでの回答のvalueをFeature.valueに代入
+            end
+            session[:feature] = feature
+        end
     end
 
     def set_confirm_template(question)
