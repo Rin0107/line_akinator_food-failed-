@@ -505,14 +505,12 @@ class AkinatorController < ApplicationController
             save_status(user_status, 'registering')
             # user_status.statusをregisteringに更新
             reply_content = simple_text("ありゃ、もう一度食べたいものを教えて下さい")
-        else:
+        else
             # それ以外のmessageが来た場合
-            reply_content.append(TextMessageForm(text="ええ…"))
-            confirm_text = "思い浮かべていたのは\n\n" + name + "\n\nでよろしいですか？"
-            reply_content.append(QuickMessageForm(text=confirm_text, items=["はい", "いいえ"]))
+            reply_content = set_confirm_template("思い浮かべていたのは\n\n#{mesasge}\n\nでいいですか？")
             # GameStateは更新せず、同じことを繰り返す
-        return reply_content
         end
+        return reply_content
     end
 
     private
