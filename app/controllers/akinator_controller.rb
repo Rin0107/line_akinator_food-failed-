@@ -49,15 +49,14 @@ class AkinatorController < ApplicationController
         guessing: handle_guessing,
         resuming: handle_resuming,
         begging: handle_begging
+        registering: handle_registering,
+        confirming: handle_confirming
     }
 
     def handle_message(event, user_id)
         if event.message['text'] == "終了"
             # 途中終了するときの処理
-            message = {
-                type: 'text',
-                text: "今回は終了しました。また遊ぶときは「はじめる」と打ってね！"
-            }
+            message = simple_text("今回は終了しました。また遊ぶときは「はじめる」と打ってね！")
             reply_content(event, message)
             user_status = get_user_status(user_id)
             reset_status(user_status)
@@ -384,10 +383,7 @@ class AkinatorController < ApplicationController
     def handle_guessing(user_status, message)
         if message == "はい"
             # most_likely_solutionが当たった場合
-            reply_content = {
-                type: 'text'
-                text: "じゃあ、それ食べに行こう！"
-            }
+            reply_content = simple_text("じゃあ、それ食べに行こう！")
             update_features(user_status.progress)
             # 正解の選択肢が見つかったので、その選択肢のFeature.valueを今回の回答に更新し、新しくQuestionとFeatureがあった場合は新規作成
             reset_status(user_status)
@@ -420,10 +416,7 @@ class AkinatorController < ApplicationController
             # 外して、続けない場合
             items = user_status.progress.candidates.first(5).each{|s| [s.name]}
             # reply_content用にitemsを用意。中身はこれまでで絞り込んだcandidatesを順に5個まで
-            reply_content = {
-                type: 'text'
-                text: "じゃあ、以下の中に食べたいものがあったらその名前を打って教えて！\n#{items.join("\n")}"
-            }
+            reply_content = simple_text("じゃあ、以下の中に食べたいものがあったらその名前を打って教えて！\n#{items.join("\n")}")
             save_status(user_status, 'begging')
             # user_status.statusをbeggingに更新
         else
@@ -446,11 +439,8 @@ class AkinatorController < ApplicationController
             # 今回のAnswerとUserStatusのprogressを全て削除
             save_status(user_status, 'pending')
             # GameStateをPendingに更新
-            reply_content = {
-                type: 'text'
-                text: 
-            }
-        elif message == "どれも当てはまらない":
+            reply_content = simple_text("教えてくれてありがとう、じゃあそれ食べに行こう！")
+        elsif message == "どれも当てはまらない"
             # "どれも当てはまらない"の場合
             save_status(user_status, GameState.REGISTERING)
             # GameStateをRegisteringに更新
