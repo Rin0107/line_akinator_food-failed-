@@ -60,24 +60,24 @@ class AkinatorController < ApplicationController
             reply_content(event, message)
             user_status = get_user_status(user_id)
             reset_status(user_status)
-        end
-
-        case event.type
-        when Line::Bot::Event::MessageType::Text
-            message = event.message['text']
-            # 受け取ったメッセージの文字列をmessageに代入
-            user_status = get_user_status(user_id)
-            # UserStatusのインスタンスを引数user_idで照合して、存在しなかった場合作成して、返り値はUserStatusインスタンス
-            status = user_status.status
-            # UserStatusを作成した時、user_status.statusは'pending'
-            akinator_handler = akinator_handler_table.fetch(:status)
-            # status（'pending'）を引数に、akinator_handler_tableからvalue（メソッド）を取得し、代入
-            reply_content = akinator_handler(user_status, message)
-            # akinator_handler（メソッド）に引数user_status, messageを渡し、返り値は連想配列{}
-            reply_content(event, reply_content)
-            # reply_contentメソッドを呼び出し
-            # Messaging APIでは各メッセージに応答トークンという識別子がある
-            # reply_messageの引数はreplyTokenとtype:textのtext:内容
+        else
+            case event.type
+            when Line::Bot::Event::MessageType::Text
+                message = event.message['text']
+                # 受け取ったメッセージの文字列をmessageに代入
+                user_status = get_user_status(user_id)
+                # UserStatusのインスタンスを引数user_idで照合して、存在しなかった場合作成して、返り値はUserStatusインスタンス
+                status = user_status.status
+                # UserStatusを作成した時、user_status.statusは'pending'
+                akinator_handler = akinator_handler_table.fetch(:status)
+                # status（'pending'）を引数に、akinator_handler_tableからvalue（メソッド）を取得し、代入
+                reply_content = akinator_handler(user_status, message)
+                # akinator_handler（メソッド）に引数user_status, messageを渡し、返り値は連想配列{}
+                reply_content(event, reply_content)
+                # reply_contentメソッドを呼び出し
+                # Messaging APIでは各メッセージに応答トークンという識別子がある
+                # reply_messageの引数はreplyTokenとtype:textのtext:内容
+            end
         end
     end
 
@@ -440,20 +440,34 @@ class AkinatorController < ApplicationController
             save_status(user_status, 'pending')
             # GameStateをPendingに更新
             reply_content = simple_text("教えてくれてありがとう、じゃあそれ食べに行こう！")
-        elsif message == "どれも当てはまらない"
-            # "どれも当てはまらない"の場合
-            save_status(user_status, GameState.REGISTERING)
-            # GameStateをRegisteringに更新
-            reply_content.append(TextMessageForm(text="答えを入力してくださいな…"))
-        else:
-            # 以上のどれでもない場合
-            reply_content.append(TextMessageForm(text="なにそれは…"))
-            items = [s.name for s in user_status.progress.candidates] + ["どれも当てはまらない"]
-            # これまでに絞り込んだ全てのcandidatesを提示する。（handle_resumingの時には12個だけ提示した）
-            reply_content.append(QuickMessageForm(text="当てはまるものを選んでください", items=items))
-            # GameStateはBeggingのまま。これでまた以上のどれでもない場合は、同じことを繰り返すことになる。
-        return reply_content
+        else
+            # 当てはまらなかった場合
+            save_status(user_status, 'registering')
+            # user_status.statusをregisteringに変更
+            reply_content = set_butten_template(
+                altText: "ごめん。。。",
+                title: "分からなかった…。食べたいものがあったら打って教えて？\n無ければ「終了」を押してね…。",
+                text: "終了"
+            )
         end
+        return reply_content
+    end
+
+    # handle_beggingで"どれも当てはまらない"の場合、"答えを入力してくださいな…"を提示し、GameStateがRegisteringになり呼び出されるメソッド
+    # 引数はUserStatusとmessage、返り値は配列[(text, items)]
+    def handle_registering(user_status, message)
+        prepared_solution = PreparedSolution.create()
+        # preparedSolutionをcreateして代入
+        # カラムはid, progress_id, name
+        prepared_solution.name = message
+        # message（教えてもらった答え）をnameとして代入
+        user_status.progress.prepared_solution = prepared_solution
+        # UserStatesのProgressのprepared_solutionに代入
+        # これでprepared_solutionとprogressが関連づいた？
+        save_status(user_status, 'confirming')
+        # user_status.statusをconfirmingに更新
+        reply_content = set_confirm_template("思い浮かべていたのは\n\n#{mesasge}\n\nでいい？")
+        return reply_content
     end
 
     private
