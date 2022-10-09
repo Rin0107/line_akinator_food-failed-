@@ -104,13 +104,13 @@ class AkinatorController < ApplicationController
         # 要素の順序を保持しない点などの特徴がある。
         progress.candidates.each do |s|
             # progressはProgressモデルと関連づいており、candidatesカラムを持つ
-            q_set = s.features.each {|f| [f.question_id]}
+            q_set = s.features.each{|f| [f.question_id]}
             # Solutionモデルのfeaturesレコードを順番にfに代入して、Featuresのquestion_idをq_setに代入
             # つまり、候補群の持つfeaturesを導くquestionのidをリスト型でq_setに代入
             related_question_set.add(q_set)
             # set型のrelated_questionにq_setを代入すると、重複するqustion_idをまとめてset型にできる
         end
-        q_score_table = related_question_set.to_a.each {|q_id| {q_id: 0.0}}
+        q_score_table = related_question_set.to_a.each{|q_id| {q_id: 0.0}}
         # candidatesのfeaturesを導くquestion_id（重複なし）をリスト型にして、キーとして繰り返し代入し、valueは0.0としておく
 
         progress.candidates.each do |s|
@@ -124,12 +124,13 @@ class AkinatorController < ApplicationController
                 # 1.0（ハイ）と-1.0（イイエ）が混在するquestion（valueが0.0に近い）ということは、その質問の回答によって選択肢が多く絞り込まれる。
             end
         end
-        q_score_table = {key: abs(value) for key, value in q_score_table.items()}
+        q_score_table = q_score_table.each{|key, value| {key: abs(value)}}
         # q_score_tableのvalueを絶対値に。valueが大きい→その質問に対して選択肢は似た回答を持つ→その質問をしてもあまり絞り込めない、となる連想配列が完成
-        print("[select_next_question] q_score_table: ", q_score_table)
-        next_q_id = min(q_score_table, key=q_score_table.get)
+        print("[select_next_question] q_score_table=> ", q_score_table)
+        next_q_id = q_score_table.min{|x, y| x[1] <=> y[1] }
         # 最も絶対値が小さいquestionということは、その質問の回答が分かれる→その質問の回答によって選択肢が多く絞り込まれる。
-        return Question.query.get(next_q_id)
+        # rubyのmin,maxは、hashの場合、x=>[key,value], y=>[key,value] hash.eachだと、|x, y|と書くと、x=>key, y=>valueなのに…
+        return Question.find(next_q_id)
         # Questionインスタンスのキーが、next_q_idに合致する行を取得。（プライマリーキーであるidで照合しているっぽい？）
     end
 
