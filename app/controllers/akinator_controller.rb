@@ -48,7 +48,7 @@ class AkinatorController < ApplicationController
         asking: handle_asking,
         guessing: handle_guessing,
         resuming: handle_resuming,
-        begging: handle_begging
+        begging: handle_begging,
         registering: handle_registering,
         confirming: handle_confirming
     }
@@ -129,7 +129,7 @@ class AkinatorController < ApplicationController
         end
         q_score_table = q_score_table.each{|key, value| {key: abs(value)}}
         # q_score_tableのvalueを絶対値に。valueが大きい→その質問に対して選択肢は似た回答を持つ→その質問をしてもあまり絞り込めない、となる連想配列が完成
-        p ("[select_next_question] q_score_table=> ", q_score_table)
+        p ("[select_next_question] q_score_table=> #{q_score_table}")
         next_q_id = q_score_table.min{|x, y| x[1] <=> y[1]}
         # 最も絶対値が小さいquestionということは、その質問の回答が分かれる→その質問の回答によって選択肢が多く絞り込まれる。
         # rubyのmin,maxは、hashの場合、x=>[key,value], y=>[key,value] hash.eachだと、|x, y|と書くと、x=>key, y=>valueなのに…
@@ -142,6 +142,7 @@ class AkinatorController < ApplicationController
         if new_status
             # new_statusが存在する場合
             user_status.update(status: new_status)
+        end
         if next_question
             # next_questionが存在する場合
             user_status.progress.latest_question.update(question_id: next_question.id)
@@ -163,7 +164,7 @@ class AkinatorController < ApplicationController
     # 現の選択肢のスコアテーブル、引数はUserStatusのprogress
     # 返り値はvalueが小さい順の連想配列s_score_table
     def gen_solution_score_table(progress)
-        s_score_table = progress.candidates.each{|s| {s.id: 0.0}}
+        s_score_table = progress.candidates.each{|s| {s.id => 0.0}}
         # solutionのスコアテーブルとして、Progressのcandidatesレコード（Solutionの行になる？）を繰り返しsに代入して、Solutionのidをキーに。
         # valueは全て0.0（select_next_questionと同じ手法）
         s_score_table.each do |s_id|
@@ -183,7 +184,7 @@ class AkinatorController < ApplicationController
         end
         s_score_table = s_score_table.sort{|x, y| x[1]<=>y[1]}.to_h
         # s_score_tableをvalueで昇順に並び替えて、ハッシュに戻す
-        p ("s_score_table: ", s_score_table)
+        p ("s_score_table: #{s_score_table}")
         return s_score_table
     end
 
@@ -203,9 +204,13 @@ class AkinatorController < ApplicationController
     def can_decide(s_score_table, old_s_score_table)
         scores = s_score_table.values
         # s_score_tableのvaluesを取得し（この時点で配列化されている）、scoresに代入
-        return scores.length == 1 or scores[0] != scores[1] or s_score_table.keys == old_s_score_table.keys
-        # scoresのlengthが1又は、scores[0]がscores[1]と異なる場合（つまり選択肢が一つの場合）又は、
-        # s_score_tableのキーたちとold_s_score_tableのキーたちが一致する場合（つまりupdate_candidateしても選択肢が変わらない場合）はtrueを返す
+        if scores.length == 1 || scores[0] != scores[1] || s_score_table.keys == old_s_score_table.keys
+            # scoresのlengthが1又は、scores[0]がscores[1]と異なる場合（つまり選択肢が一つの場合）又は、
+            # s_score_tableのキーたちとold_s_score_tableのキーたちが一致する場合（つまりupdate_candidateしても選択肢が変わらない場合）はtrueを返す
+            return true
+        else
+            return false
+        end
     end
 
     # AnswerをProgress、セッションにpush、引数はprogress, answer_msg
@@ -246,7 +251,7 @@ class AkinatorController < ApplicationController
             # 正解した時点のs_score_tableの最も可能性の高いSolutionインスタンス（正解）をsolutionに代入
         end
 
-        qid_feature_table = solution.features.each{|f| {f.question_id: f}}
+        qid_feature_table = solution.features.each{|f| {f.question_id => f}}
         # 正解のsolutionのfeaturesをfに繰り返し代入し、キー：そのquestion_id、value：そのvalueとした連想配列をqid_feature_tableに代入
         progress.answer.each do |ans|
             # progressのanswersを繰り返しansに代入し、
@@ -275,7 +280,7 @@ class AkinatorController < ApplicationController
 
     def simple_text(text)
         reply_content = {
-            type: 'text'
+            type: 'text',
             text: text
         }
         return reply_content
@@ -382,6 +387,7 @@ class AkinatorController < ApplicationController
             # ["はい", "いいえ"]がmessageに含まれない場合
             question = select_next_question(user_status.progress)
             reply_content = set_confirm_template("「はい」か「いいえ」で答えてね！\n#{question.message}")
+        end
         return reply_content
     end
 
