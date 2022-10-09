@@ -117,7 +117,11 @@ class AkinatorController < ApplicationController
             q_score_table.each do |q_id|
                 feature = Feature.find_by(question_id: q_id, solution_id: s.id)
                 # 絞り込んだquestion_idと候補群のsolution_idでFeatureインスタンスを取得し代入。これをprogress.candidatesとq_score_tableでループ回す
-                q_score_table[q_id] += feature.value if feature.present?
+                if feature.present?
+                    q_score_table[q_id] += feature.value
+                else
+                    q_score_table[q_id] += 0.0
+                end
                 # q_score_tableのそれぞれのvalueにfeature.valueを足す
                 # これで候補群のfeatureを導くquesitonsのidをキーに持ち、
                 # valueにはsolution_idとquestion_idが一致するfeature.valueを足し続ける。
