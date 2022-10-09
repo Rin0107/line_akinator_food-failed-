@@ -102,7 +102,7 @@ class AkinatorController < ApplicationController
         # 添え字やキーなどの概念がなく、ユニークな要素である点、
         # 要素の順序を保持しない点などの特徴がある。
         progress.candidates.each do |s|
-            # progressはProgressモデルと関連づいており、candidatesカラムを持つ
+            # progressはCandidatesクラス（中間テーブル）と関連づいている
             q_set = s.features.each{|f| [f.question_id]}
             # Solutionモデルのfeaturesレコードを順番にfに代入して、Featuresのquestion_idをq_setに代入
             # つまり、候補群の持つfeaturesを導くquestionのidをリスト型でq_setに代入
@@ -237,8 +237,15 @@ class AkinatorController < ApplicationController
     # 正解の場合等に呼び出されるメソッド。正解の選択肢が見つかった場合、今回の回答は全てその正解の選択肢のfeatureと考えられる。
     # なので、今回の質問と回答が正解の選択肢のQuestion_id,Feature_valueとして保持されている場合は更新し、保持されていない場合は新規作成する。 
     def update_features(progress, true_solution=nil)
-        solution = true_solution or guess_solution(gen_solution_score_table(progress))
-        # true_solution又は、正解した時点のs_score_tableの最も可能性の高いSolutionインスタンス（正解）をsolutionに代入
+        if true_solution.present?
+            # true_solutionがfalse,nil以外の場合
+            solution = true_solution
+        else
+            # true_solutionがfalse,nilの場合
+            solution = guess_solution(gen_solution_score_table(progress))
+            # 正解した時点のs_score_tableの最も可能性の高いSolutionインスタンス（正解）をsolutionに代入
+        end
+
         qid_feature_table = solution.features.each{|f| {f.question_id: f}}
         # 正解のsolutionのfeaturesをfに繰り返し代入し、キー：そのquestion_id、value：そのvalueとした連想配列をqid_feature_tableに代入
         progress.answer.each do |ans|
@@ -390,12 +397,12 @@ class AkinatorController < ApplicationController
             # 今回のAnswerとUserStatusのprogressを全て削除
         elsif message == "いいえ"
             # most_likely_solutionが当たった場合
-            reply_content = set_confirm_template("ありゃ、ごめん！続けて質問していい？")
+            reply_content = set_confirm_template("ありゃ、ごめんなさい！続けて質問していいですか？")
             save_status(user_status, 'resuming')
             # UserStatusは変わらないが、GameStateをGUESSINGからRESUMINGに更新
         else
             # ["はい", "いいえ"]がmessageに含まれない場合
-            reply_content = set_confirm_template("「はい」か「いいえ」で教えてね！\n続けて質問していい？")
+            reply_content = set_confirm_template("「はい」か「いいえ」で教えて下さい！\n続けて質問していいですか？")
         end
         return reply_content
     end
@@ -416,12 +423,12 @@ class AkinatorController < ApplicationController
             # 外して、続けない場合
             items = user_status.progress.candidates.first(5).each{|s| [s.name]}
             # reply_content用にitemsを用意。中身はこれまでで絞り込んだcandidatesを順に5個まで
-            reply_content = simple_text("じゃあ、以下の中に食べたいものがあったらその名前を打って教えて！\n#{items.join("\n")}")
+            reply_content = simple_text("じゃあ、以下の中に食べたいものがあったらその名前を打って教えて下さい！\n#{items.join("\n")}")
             save_status(user_status, 'begging')
             # user_status.statusをbeggingに更新
         else
             # ["はい", "いいえ"]がmessageに含まれない場合
-            reply_content = set_confirm_template("「はい」か「いいえ」で教えてね！\n続けて質問していい？")
+            reply_content = set_confirm_template("「はい」か「いいえ」で教えて下さい！\n続けて質問していい？")
         end
         return reply_content
     end
@@ -445,8 +452,8 @@ class AkinatorController < ApplicationController
             save_status(user_status, 'registering')
             # user_status.statusをregisteringに変更
             reply_content = set_butten_template(
-                altText: "ごめん。。。",
-                title: "分からなかった…。食べたいものがあったら打って教えて？\n無ければ「終了」を押してね…。",
+                altText: "ごめんなさい。。。",
+                title: "分かりませんでした…。食べたいものがあったら打って教えて下さい。\n無ければ「終了」を押してね…。",
                 text: "終了"
             )
         end
@@ -466,8 +473,46 @@ class AkinatorController < ApplicationController
         # これでprepared_solutionとprogressが関連づいた？
         save_status(user_status, 'confirming')
         # user_status.statusをconfirmingに更新
-        reply_content = set_confirm_template("思い浮かべていたのは\n\n#{mesasge}\n\nでいい？")
+        reply_content = set_confirm_template("思い浮かべていたのは\n\n#{mesasge}\n\nでいいですか？")
         return reply_content
+    end
+
+    # handle_registeringで教えてもらった答えをprepared_solutionとして代入して、提示して、GameStateがConfirmingになり呼び出されるメソッド
+    def handle_confirming(user_status, message)
+        pre_solution = user_status.progress.prepared_solution
+        # 教えてもらった答えをpre_solutionに代入
+        name = pre_solution.name
+        # 教えてもらった答えのnameをnameに代入しておく
+        if message == "はい"
+            # handle_registeringで提示したset_confirm_templateの「はい」を押下した場合
+            pre_solution.destroy
+            # pre_solutionをテーブルから削除
+            new_solution = Solution.create()
+            # Solutionをnewして代入
+            new_solution.name = name
+            # newしたSolutionのnameに、教えてもらった答えのnameを代入
+            update_features(user_status.progress, new_solution)
+            # new_solutionのFeature.valueを更新して、新しくQuestionとFeatureがあった場合は新規作成
+            reply_content = simple_text("#{name}ですね、覚えておきます。ありがとうございました！")
+            save_status(user_status, 'pending')
+            # user_status.statusをpendingに更新
+            reset_status(user_status)
+            # 今回のAnswerとUserStatusのprogressを全て削除
+        elsif message == "いいえ"
+            # handle_registeringで提示したQuickMessageFormに対して"いいえ"の場合
+            dpre_solution.destroy
+            # pre_solutionをテーブルから削除
+            save_status(user_status, 'registering')
+            # user_status.statusをregisteringに更新
+            reply_content = simple_text("ありゃ、もう一度食べたいものを教えて下さい")
+        else:
+            # それ以外のmessageが来た場合
+            reply_content.append(TextMessageForm(text="ええ…"))
+            confirm_text = "思い浮かべていたのは\n\n" + name + "\n\nでよろしいですか？"
+            reply_content.append(QuickMessageForm(text=confirm_text, items=["はい", "いいえ"]))
+            # GameStateは更新せず、同じことを繰り返す
+        return reply_content
+        end
     end
 
     private
