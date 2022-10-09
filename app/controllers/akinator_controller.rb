@@ -55,7 +55,7 @@ class AkinatorController < ApplicationController
         if event.message['text'] == "終了"
             # 途中終了するときの処理
             message = {
-                type: 'text'
+                type: 'text',
                 text: "今回は終了しました。また遊ぶときは「はじめる」と打ってね！"
             }
             reply_content(event, message)
@@ -92,6 +92,45 @@ class AkinatorController < ApplicationController
         end
         session[:user_status] = user_status
         return user_status
+    end
+
+    # 次の質問を選択する（ベクトルの内積を使うやつのはず）
+    # progressはUserStatusのレコード
+    # 返り値は、q_score_tableのfeature.valueが最小のQuestionインスタンス
+    def select_next_question(progress)
+        related_question_set = Set.new()
+        # set型とは、重複した値を格納できない点や、
+        # 添え字やキーなどの概念がなく、ユニークな要素である点、
+        # 要素の順序を保持しない点などの特徴がある。
+        progress.candidates.each do |s|
+            # progressはProgressモデルと関連づいており、candidatesカラムを持つ
+            q_set = s.features.each {|f| [f.question_id]}
+            # Solutionモデルのfeaturesレコードを順番にfに代入して、Featuresのquestion_idをq_setに代入
+            # つまり、候補群の持つfeaturesを導くquestionのidをリスト型でq_setに代入
+            related_question_set.add(q_set)
+            # set型のrelated_questionにq_setを代入すると、重複するqustion_idをまとめてset型にできる
+        end
+        q_score_table = related_question_set.to_a.each {|q_id| {q_id: 0.0}}
+        # candidatesのfeaturesを導くquestion_id（重複なし）をリスト型にして、キーとして繰り返し代入し、valueは0.0としておく
+
+        progress.candidates.each do |s|
+            q_score_table.each do |q_id|
+                feature = Feature.find_by(question_id: q_id, solution_id: s.id)
+                # 絞り込んだquestion_idと候補群のsolution_idでFeatureインスタンスを取得し代入。これをprogress.candidatesとq_score_tableでループ回す
+                q_score_table[q_id] += feature.value if feature.present?
+                # q_score_tableのそれぞれのvalueにfeature.valueを足す
+                # これで候補群のfeatureを導くquesitonsのidをキーに持ち、
+                # valueにはsolution_idとquestion_idが一致するfeature.valueを足し続ける。
+                # 1.0（ハイ）と-1.0（イイエ）が混在するquestion（valueが0.0に近い）ということは、その質問の回答によって選択肢が多く絞り込まれる。
+            end
+        end
+        q_score_table = {key: abs(value) for key, value in q_score_table.items()}
+        # q_score_tableのvalueを絶対値に。valueが大きい→その質問に対して選択肢は似た回答を持つ→その質問をしてもあまり絞り込めない、となる連想配列が完成
+        print("[select_next_question] q_score_table: ", q_score_table)
+        next_q_id = min(q_score_table, key=q_score_table.get)
+        # 最も絶対値が小さいquestionということは、その質問の回答が分かれる→その質問の回答によって選択肢が多く絞り込まれる。
+        return Question.query.get(next_q_id)
+        # Questionインスタンスのキーが、next_q_idに合致する行を取得。（プライマリーキーであるidで照合しているっぽい？）
     end
 
     def set_confirm_template(question)
@@ -139,8 +178,8 @@ class AkinatorController < ApplicationController
     end
 
     # GameStatusがPendingの場合akinator_handlerで呼び出されるメソッド、引数はUserStatus, message、返り値は配列[(text, items)]
-    def handle_pending(user_status, message):
-        if message == "はじめる":
+    def handle_pending(user_status, message)
+        if message == "はじめる"
             user_status.progress = Progress.create()
             # Progressをcreateして、UserStatusのprogressに代入
             user_status.progress.candidates = Solution.all()
@@ -152,8 +191,8 @@ class AkinatorController < ApplicationController
             # ?'asking'で指定できるのか？番号の必要あり？
             reply_content = set_confirm_template(question)
             # ser_confirm_templateでquestion.messageに対して「はい」「いいえ」の確認テンプレートを作成、返り値はreply_content={}
-        else:
-            reply_content = set_butten_template(altText: "今日は何食べる？", title: "「はじめる」をタップ！", text: "はじめる")
+        else
+            reply_content = set_butten_template(altText: "今日何食べる？", title: "「はじめる」をタップ！", text: "はじめる")
             # set_butten_templateでtitleのvalueをテキストに、textのvalueをボタンにする。
         end
         return reply_content  
