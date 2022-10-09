@@ -188,6 +188,18 @@ class AkinatorController < ApplicationController
         return s_score_table
     end
 
+    # 候補群の平均以上の候補のみを取得、引数はs_score_table、返り値はSolutionインスタンスたち
+    def update_candidates(s_score_table)
+        score_mean = s_score_table.values.sum(0.0) / s_score_table.values.length
+        # s_score_tableのvaluesを取得し合計と要素数から、平均値を取得
+        s_score_table.each do |s_id, score|
+            if score >= score_mean
+                return Solution.find(s_id)
+                # s_score_tableのscoreがscore_mean以上の場合、そのs_idのSolutionの行を取得
+            end
+        end
+    end
+
     def set_confirm_template(question)
         text = question.message
         reply_content = {
