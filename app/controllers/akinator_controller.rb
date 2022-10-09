@@ -200,6 +200,35 @@ class AkinatorController < ApplicationController
         end
     end
 
+    # 決定可能か判断、引数はs_score_table, old_s_score_table、返り値はboolen
+    def can_decide(s_score_table, old_s_score_table)
+        scores = s_score_table.values
+        # s_score_tableのvaluesを取得し（この時点で配列化されている）、scoresに代入
+        return scores.length == 1 or scores[0] != scores[1] or s_score_table.keys == old_s_score_table.keys
+        # scoresのlengthが1又は、scores[0]がscores[1]と異なる場合（つまり選択肢が一つの場合）又は、
+        # s_score_tableのキーたちとold_s_score_tableのキーたちが一致する場合（つまりupdate_candidateしても選択肢が変わらない場合）はtrueを返す
+    end
+
+    # AnswerをProgress、セッションにpush、引数はprogress, answer_msg
+    def push_answer(progress, answer_msg):
+        answer = Answer.create()
+        # Answerをcreateしてanswerに代入
+        answer.question = progress.latest_question
+        # progress.latest_questionを、createしたanwerに関連づいたquestionに代入
+        # ?railsのアソシエーションメソッドを用いる必要があるかも？
+        if answer_msg == "はい"
+            # answer_msgが"はい"の場合、Answerのvalueに1.0を代入、
+            answer.value = 1.0
+        else
+            # それ以外の場合-1.0を代入
+            answer.value = -1.0
+        end
+        progress.answers << answer
+        # progressのanswersにcreateしたanswerを追加する（answerにprogress_idが入る）
+        # ProgressのanswersにAnswer(answer.question, answer.value)を追加（Progressのanswersにはidだけが入るのか？）
+        session[:answer] = answer
+    end
+
     def set_confirm_template(question)
         text = question.message
         reply_content = {
