@@ -131,7 +131,7 @@ class AkinatorController < ApplicationController
         q_score_table = q_score_table.each{|key, value| {key: abs(value)}}
         # q_score_tableのvalueを絶対値に。valueが大きい→その質問に対して選択肢は似た回答を持つ→その質問をしてもあまり絞り込めない、となる連想配列が完成
         print("[select_next_question] q_score_table=> ", q_score_table)
-        next_q_id = q_score_table.min{|x, y| x[1] <=> y[1] }
+        next_q_id = q_score_table.min{|x, y| x[1] <=> y[1]}
         # 最も絶対値が小さいquestionということは、その質問の回答が分かれる→その質問の回答によって選択肢が多く絞り込まれる。
         # rubyのmin,maxは、hashの場合、x=>[key,value], y=>[key,value] hash.eachだと、|x, y|と書くと、x=>key, y=>valueなのに…
         return Question.find(next_q_id)
@@ -227,6 +227,12 @@ class AkinatorController < ApplicationController
         # progressのanswersにcreateしたanswerを追加する（answerにprogress_idが入る）
         # ProgressのanswersにAnswer(answer.question, answer.value)を追加（Progressのanswersにはidだけが入るのか？）
         session[:answer] = answer
+    end
+
+    # s_score_tableから、現在最もAnswerとFeatureが近いSolutionを取得、引数はs_score_table、返り値はSolutionインスタンス
+    def guess_solution(s_score_table):
+        return Solution.find(s_score_table.max{|x, y| x[1] <=> y[1]})
+        # s_score_tableのvalueが最大値のs.idを取得し、該当のSolutionの行を取得
     end
 
     def set_confirm_template(question)
