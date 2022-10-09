@@ -110,9 +110,9 @@ class AkinatorController < ApplicationController
             related_question_set.add(q_set)
             # set型のrelated_questionにq_setを代入すると、重複するqustion_idをまとめてset型にできる
         end
+
         q_score_table = related_question_set.to_a.each{|q_id| {q_id: 0.0}}
         # candidatesのfeaturesを導くquestion_id（重複なし）をリスト型にして、キーとして繰り返し代入し、valueは0.0としておく
-
         progress.candidates.each do |s|
             q_score_table.each do |q_id|
                 feature = Feature.find_by(question_id: q_id, solution_id: s.id)
@@ -136,6 +136,56 @@ class AkinatorController < ApplicationController
         # rubyのmin,maxは、hashの場合、x=>[key,value], y=>[key,value] hash.eachだと、|x, y|と書くと、x=>key, y=>valueなのに…
         return Question.find(next_q_id)
         # Questionインスタンスのキーが、next_q_idに合致する行を取得。（プライマリーキーであるidで照合しているっぽい？）
+    end
+
+    # UserStatusを更新してsave
+    def save_status(user_status, new_status=None, next_question=None)
+        if new_status
+            # new_statusが存在する場合
+            user_status.update(status: new_status)
+        if next_question
+            # next_questionが存在する場合
+            user_status.progress.latest_question.update(question_id: next_question.id)
+        end
+    end
+
+    # UserStatusのstatusをリセットする
+    def reset_status(user_status):
+        user_status.progress.answers.destroy_all
+        # Answerテーブルのprogress_idレコードがUserのprogress.idと合致するAnswerテーブルの行を削除
+        # つまり、今回のUserのAnswerを全て削除
+        user_status.progress.destroy
+        # UserStatusのprogressを削除
+        # つまり、今回のUserの経過状況を全て削除
+        save_status(user_status, 'pending')
+        # 上記を削除したUserStatusをsave
+    end
+
+    # 現の選択肢のスコアテーブル、引数はUserStatusのprogress
+    # 返り値はvalueが小さい順の連想配列s_score_table
+    def gen_solution_score_table(progress):
+        s_score_table = progress.candidates.each{|s| {s.id: 0.0}}
+        # solutionのスコアテーブルとして、Progressのcandidatesレコード（Solutionの行になる？）を繰り返しsに代入して、Solutionのidをキーに。
+        # valueは全て0.0（select_next_questionと同じ手法）
+        s_score_table.each do |s_id|
+            progress.answers.each do |ans|
+                # progressと関連付くanswersを繰り返しansに代入
+                feature = Feature.find_by(question_id: ans.question_id, solution_id: s_id)
+                # Featureのquestion_idがAnswerのquestion_id（回答した質問のid）と合致して、
+                # Featureのsolution_idがSolutionのidと合致する一つを取得して、featureに代入
+                if feature.present?
+                    s_score_table[s_id] += ans.value * feature.value
+                else
+                    s_score_table[s_id] += ans.value * 0.0
+                end
+                # s_score_tableのs_id（s.id）のvalueに、ans.value（回答のvalue）×用意してあるFeatureのvalueの積を足す。（0.0 + 1.0 or -1.0)
+                # 回答のvalueと用意してあるFeatureのvalueが一致していれば、1.0、一致しなければ-1.0がs_score_tableのvalueとなる
+            end
+        end
+        s_score_table = s_score_table.sort{|x, y| x[1]<=>y[1]}.to_h
+        # s_score_tableをvalueで昇順に並び替えて、ハッシュに戻す
+        print("s_score_table: ", s_score_table)
+        return s_score_table
     end
 
     def set_confirm_template(question)
