@@ -267,6 +267,14 @@ class AkinatorController < ApplicationController
         end
     end
 
+    def simple_text(text)
+        reply_content = {
+            type: 'text'
+            text: text
+        }
+        return reply_content
+    end
+
     def set_confirm_template(question_message)
         reply_content = {
             type: 'template',
@@ -386,14 +394,76 @@ class AkinatorController < ApplicationController
             # 今回のAnswerとUserStatusのprogressを全て削除
         elsif message == "いいえ"
             # most_likely_solutionが当たった場合
-            reply_content = set_confirm_template("ありゃ、ごめん！もう一回やってもいい？")
+            reply_content = set_confirm_template("ありゃ、ごめん！続けて質問していい？")
             save_status(user_status, 'resuming')
             # UserStatusは変わらないが、GameStateをGUESSINGからRESUMINGに更新
         else
             # ["はい", "いいえ"]がmessageに含まれない場合
-            reply_content = set_confirm_template("「はい」か「いいえ」で教えてね！\nもう一回やってもいい？")
+            reply_content = set_confirm_template("「はい」か「いいえ」で教えてね！\n続けて質問していい？")
         end
         return reply_content
+    end
+
+    # handle_guessingで最も可能性が高い選択肢が解答でなかった場合にGameStateがResumingになり呼び出されるメソッド
+    # 引数はUserStatus, message、返り値は配列[(text, items)]
+    def handle_resuming(user_status, message)
+        if message == "はい"
+            # 外したが、続ける場合
+            user_status.progress.candidates = Solution.all()
+            # UserStatusのProgressのcandidatesをSolutionのインスタンスを全てにする
+            # つまり、これまでの回答で絞り込んだcandidatesを選択肢全てにする
+            question = select_next_question(user_status.progress)
+            reply_content = set_confirm_template(question.message)
+            save_status(user_status, 'asking', question)
+            # GamestateをAskingにする。next_questionもある。
+        elsif message == "いいえ"
+            # 外して、続けない場合
+            items = user_status.progress.candidates.first(5).each{|s| [s.name]}
+            # reply_content用にitemsを用意。中身はこれまでで絞り込んだcandidatesを順に5個まで
+            reply_content = {
+                type: 'text'
+                text: "じゃあ、以下の中に食べたいものがあったらその名前を打って教えて！\n#{items.join("\n")}"
+            }
+            save_status(user_status, 'begging')
+            # user_status.statusをbeggingに更新
+        else
+            # ["はい", "いいえ"]がmessageに含まれない場合
+            reply_content = set_confirm_template("「はい」か「いいえ」で教えてね！\n続けて質問していい？")
+        end
+        return reply_content
+    end
+
+    # handle_resumingで続けない場合、candidatesと、"どれも当てはまらない"を提示して、GameStateがBeggingになり呼び出されるメソッド
+    # 引数はUserStatusとmessage、返り値は配列[(text, items)]
+    def handle_begging(user_status, message)
+        if Solution.all().each{|s| [s.name]}.include?(message)
+            # candidatesと"どれも当てはまらない"への返信がSolution全ての中の一つに当てはまるかを繰り返しチェックし、存在する場合
+            true_solution = Solution.find_by(name: message)
+            # messsage(教えてもらったSolutionのname)とSolution.nameが一致する最初の一つを本当の解答として代入
+            update_features(user_status.progress, true_solution)
+            # 教えてもらった本当の解答を引数に、本当の解答のFeature.valueを今回の回答に更新し、新しくQuestionとFeatureがあった場合は新規作成
+            reset_status(user_status)
+            # 今回のAnswerとUserStatusのprogressを全て削除
+            save_status(user_status, 'pending')
+            # GameStateをPendingに更新
+            reply_content = {
+                type: 'text'
+                text: 
+            }
+        elif message == "どれも当てはまらない":
+            # "どれも当てはまらない"の場合
+            save_status(user_status, GameState.REGISTERING)
+            # GameStateをRegisteringに更新
+            reply_content.append(TextMessageForm(text="答えを入力してくださいな…"))
+        else:
+            # 以上のどれでもない場合
+            reply_content.append(TextMessageForm(text="なにそれは…"))
+            items = [s.name for s in user_status.progress.candidates] + ["どれも当てはまらない"]
+            # これまでに絞り込んだ全てのcandidatesを提示する。（handle_resumingの時には12個だけ提示した）
+            reply_content.append(QuickMessageForm(text="当てはまるものを選んでください", items=items))
+            # GameStateはBeggingのまま。これでまた以上のどれでもない場合は、同じことを繰り返すことになる。
+        return reply_content
+        end
     end
 
     private
