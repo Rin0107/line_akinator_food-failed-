@@ -1,5 +1,5 @@
 Rails.application.routes.draw do
   # For details on the DSL available within this file, see http://guides.rubyonrails.org/routing.html
-  get '/akinator_index' => 'akinator#index'
+  get 'akinator/index'
   post '/akinator_food' => 'akinator#food'
 end
