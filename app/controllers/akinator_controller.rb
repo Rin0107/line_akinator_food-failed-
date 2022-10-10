@@ -11,7 +11,6 @@ class AkinatorController < ApplicationController
         )
         logger.warn rep.read_body unless Net::HTTPOK === rep
         rep
-      end
     end
 
     def food
@@ -46,15 +45,24 @@ class AkinatorController < ApplicationController
         head :ok
     end
 
-    akinator_handler_table = {
-        pending: handle_pending,
-        asking: handle_asking,
-        guessing: handle_guessing,
-        resuming: handle_resuming,
-        begging: handle_begging,
-        registering: handle_registering,
-        confirming: handle_confirming
-    }
+    def akinator_handler(user_status, message)
+        case user_status.status
+        when pending
+            handle_pending(user_status, message)
+        when asking
+            handle_asking(user_status, message)
+        when guessing
+            handle_guessing(user_status, message)
+        when resuming
+            handle_resuming(user_status, message)
+        when begging
+            handle_begging(user_status, message)
+        when registering
+            handle_registering(user_status, message)
+        when confirming
+            handle_confirming(user_status, message)
+        end
+    end
 
     def handle_message(event, user_id)
         if event.message['text'] == "終了"
@@ -70,10 +78,6 @@ class AkinatorController < ApplicationController
                 # 受け取ったメッセージの文字列をmessageに代入
                 user_status = get_user_status(user_id)
                 # UserStatusのインスタンスを引数user_idで照合して、存在しなかった場合作成して、返り値はUserStatusインスタンス
-                status = user_status.status
-                # UserStatusを作成した時、user_status.statusは'pending'
-                akinator_handler = akinator_handler_table.fetch(:status)
-                # status（'pending'）を引数に、akinator_handler_tableからvalue（メソッド）を取得し、代入
                 reply_content = akinator_handler(user_status, message)
                 # akinator_handler（メソッド）に引数user_status, messageを渡し、返り値は連想配列{}
                 reply_content(event, reply_content)
