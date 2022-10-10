@@ -1,0 +1,2 @@
+class PreparedSolution < ApplicationRecord
+end
