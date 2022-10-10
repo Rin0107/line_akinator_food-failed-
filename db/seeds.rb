@@ -7,11 +7,11 @@
 #   Character.create(name: 'Luke', movie: movies.first)
 
 case ENV["SECTION"]
-    when "foods"
+    when "f-1"
         add_solutions = [
             "すし"
         ]
-    when "1"
+    when "q-1"
         add_questions = [
             "和食の気分ですか？",
             "中華もあり？"
