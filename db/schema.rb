@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2022_10_10_024639) do
+ActiveRecord::Schema.define(version: 2022_10_10_025302) do
 
   create_table "latest_questions", force: :cascade do |t|
     t.integer "progress_id"
@@ -30,6 +30,12 @@ ActiveRecord::Schema.define(version: 2022_10_10_024639) do
 
   create_table "questions", force: :cascade do |t|
     t.text "message"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "solutions", force: :cascade do |t|
+    t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
