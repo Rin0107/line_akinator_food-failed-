@@ -4,4 +4,5 @@ class Progress < ApplicationRecord
     has_many :questions, through: :latest_questions
     has_many :candidates
     has_many :solutions, through: :candidates
+    has_many :answers
 end
