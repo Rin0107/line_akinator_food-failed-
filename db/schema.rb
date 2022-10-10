@@ -10,7 +10,16 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2022_10_10_023727) do
+ActiveRecord::Schema.define(version: 2022_10_10_024639) do
+
+  create_table "latest_questions", force: :cascade do |t|
+    t.integer "progress_id"
+    t.integer "question_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["progress_id"], name: "index_latest_questions_on_progress_id"
+    t.index ["question_id"], name: "index_latest_questions_on_question_id"
+  end
 
   create_table "progresses", force: :cascade do |t|
     t.integer "user_status_id"
