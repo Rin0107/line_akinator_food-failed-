@@ -26,7 +26,7 @@ end
 
 if solutions.present?
     solutions.each do |s|
-        solutions = {name: s}
+        solution = {name: s}
         Solution.create!(s)
     end
 end
