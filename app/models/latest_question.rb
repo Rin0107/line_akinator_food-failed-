@@ -1,0 +1,2 @@
+class LatestQuestion < ApplicationRecord
+end
