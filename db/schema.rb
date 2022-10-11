@@ -10,36 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2022_10_10_034213) do
-
-  create_table "answers", force: :cascade do |t|
-    t.integer "progress_id"
-    t.integer "question_id"
-    t.float "value"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["progress_id"], name: "index_answers_on_progress_id"
-    t.index ["question_id"], name: "index_answers_on_question_id"
-  end
-
-  create_table "candidates", force: :cascade do |t|
-    t.integer "progress_id"
-    t.integer "solution_id"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["progress_id"], name: "index_candidates_on_progress_id"
-    t.index ["solution_id"], name: "index_candidates_on_solution_id"
-  end
-
-  create_table "features", force: :cascade do |t|
-    t.integer "question_id"
-    t.integer "solution_id"
-    t.float "value"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["question_id"], name: "index_features_on_question_id"
-    t.index ["solution_id"], name: "index_features_on_solution_id"
-  end
+ActiveRecord::Schema.define(version: 2022_10_10_024639) do
 
   create_table "latest_questions", force: :cascade do |t|
     t.integer "progress_id"
@@ -48,14 +19,6 @@ ActiveRecord::Schema.define(version: 2022_10_10_034213) do
     t.datetime "updated_at", null: false
     t.index ["progress_id"], name: "index_latest_questions_on_progress_id"
     t.index ["question_id"], name: "index_latest_questions_on_question_id"
-  end
-
-  create_table "prepared_solutions", force: :cascade do |t|
-    t.integer "progress_id"
-    t.string "name"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["progress_id"], name: "index_prepared_solutions_on_progress_id", unique: true
   end
 
   create_table "progresses", force: :cascade do |t|
@@ -67,12 +30,6 @@ ActiveRecord::Schema.define(version: 2022_10_10_034213) do
 
   create_table "questions", force: :cascade do |t|
     t.text "message"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-  end
-
-  create_table "solutions", force: :cascade do |t|
-    t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
