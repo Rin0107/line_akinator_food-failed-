@@ -4,5 +4,6 @@ class CreateSolutions < ActiveRecord::Migration[5.2]
       t.string :name
       t.timestamps
     end
+    add_index :solutions, [:name], unipue: true
   end
 end
