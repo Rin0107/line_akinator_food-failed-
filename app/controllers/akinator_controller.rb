@@ -311,7 +311,7 @@ class AkinatorController < ApplicationController
             altText: "「はい」か「いいえ」をタップ。",
             template: {
               type: 'confirm',
-              text: question_message + "\n\n途中で終わる場合は「終了」と打って！",
+              text: "質問：" + question_message + "\n\n途中で終わる場合は「終了」と打って！",
               actions: [
                 {
                   type: 'message',
