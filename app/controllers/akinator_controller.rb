@@ -108,8 +108,8 @@ class AkinatorController < ApplicationController
         # set型とは、重複した値を格納できない点や、
         # 添え字やキーなどの概念がなく、ユニークな要素である点、
         # 要素の順序を保持しない点などの特徴がある。
-        progress.candidates.each do |s|
-            # progressはCandidatesクラス（中間テーブル）と関連づいている
+        progress.solutions.each do |s|
+            # progressはCandidatesクラス（中間テーブル）を持ってsolutionと関連づいている
             q_set = s.features.each{|f| [f.question_id]}
             # Solutionモデルのfeaturesレコードを順番にfに代入して、Featuresのquestion_idをq_setに代入
             # つまり、候補群の持つfeaturesを導くquestionのidをリスト型でq_setに代入
@@ -117,9 +117,9 @@ class AkinatorController < ApplicationController
             # set型のrelated_questionにq_setを代入すると、重複するqustion_idをまとめてset型にできる
         end
 
-        q_score_table = related_question_set.to_a.each{|q_id| {q_id: 0.0}}
+        q_score_table = related_question_set.to_a.each{|q_id| {q_id => 0.0}}
         # candidatesのfeaturesを導くquestion_id（重複なし）をリスト型にして、キーとして繰り返し代入し、valueは0.0としておく
-        progress.candidates.each do |s|
+        progress.solutions.each do |s|
             q_score_table.each do |q_id|
                 feature = Feature.find_by(question_id: q_id, solution_id: s.id)
                 # 絞り込んだquestion_idと候補群のsolution_idでFeatureインスタンスを取得し代入。これをprogress.candidatesとq_score_tableでループ回す
@@ -339,10 +339,12 @@ class AkinatorController < ApplicationController
     # GameStatusがPendingの場合akinator_handlerで呼び出されるメソッド、引数はUserStatus, message、返り値は配列[(text, items)]
     def handle_pending(user_status, message)
         if message == "はじめる"
+            message = simple_text("準備中・・・")
+            reply_content(event, message)
             user_status.progress = Progress.create()
             # Progressをcreateして、UserStatusのprogressに代入
             Solution.all.each do |solution|
-                user_status.progress.candidates = solution
+                user_status.progress.solutions << solution
             end
             # Solutionの行を全て取得し（選択肢を全て取得）、UserStatusのprogressのcandidatesに代入
             question = select_next_question(user_status.progress)
