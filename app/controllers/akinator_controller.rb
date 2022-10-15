@@ -67,7 +67,7 @@ class AkinatorController < ApplicationController
     def handle_message(event, user_id)
         if event.message['text'] == "終了"
             # 途中終了するときの処理
-            message = simple_text("今回は終了しました。また遊ぶときは「はじめる」と打ってね！")
+            message = simple_text("今回は終了しました。\nまた遊ぶときは「はじめる」と打ってね！")
             reply_content(event, message)
             user_status = get_user_status(user_id)
             reset_status(user_status)
@@ -110,7 +110,7 @@ class AkinatorController < ApplicationController
         # 要素の順序を保持しない点などの特徴がある。
         progress.solutions.each do |s|
             # progressはCandidatesクラス（中間テーブル）を持ってsolutionと関連づいている
-            s.features.each do |f|
+            s.features.preload(:question).each do |f|
                 # Solutionモデルのfeaturesレコードを順番にfに代入して、Featuresのquestion_idをq_setに代入
                 # つまり、候補群の持つfeaturesを導くquestionのidをリスト型でq_setに代入
                 # set型のrelated_questionにq_setを代入すると、重複するqustion_idをまとめてset型にできる
@@ -127,11 +127,11 @@ class AkinatorController < ApplicationController
         end
         p "q_score_table: #{q_score_table}"
 
-        feature = Feature.preload(:question_id, :solution_id)
+        features = Feature.eager_load(:question, :solution)
 
         progress.solutions.each do |s|
             q_score_table.keys.each do |q_id|
-                feature = feature.find_by(question_id: q_id, solution_id: s.id)
+                feature = features.find_by(question_id: q_id, solution_id: s.id)
                 # 絞り込んだquestion_idと候補群のsolution_idでFeatureインスタンスを取得し代入。これをprogress.candidatesとq_score_tableでループ回す
                 if feature.present?
                     q_score_table[q_id] += feature.value
@@ -311,7 +311,7 @@ class AkinatorController < ApplicationController
             altText: "「はい」か「いいえ」をタップ。",
             template: {
               type: 'confirm',
-              text: question_message + "\n途中で終わる場合は「終了」と打って！",
+              text: question_message + "\n\n途中で終わる場合は「終了」と打って！",
               actions: [
                 {
                   type: 'message',
