@@ -29,13 +29,13 @@ class AkinatorController < ApplicationController
 
         events.each do |event|
 
-            user_id = event.source['userId']
+            user_id = event['source']['userId']
             # eventのsourceからuseridを取得し、user_idに代入
             profile = client.get_profile(user_id)
             # clientのget_profileメソッドの引数にuser_idを代入、このままだとjson形式の文？
             profile = JSON.parse(profile.read_body)
             # json形式のresponseを連想配列に変換
-            p "Receives message:#{message} from #{profile['displayName']}."
+            p "Receives message:#{event.message['text']} from #{profile['displayName']}."
 
             case event
             when Line::Bot::Event::Message
@@ -47,19 +47,19 @@ class AkinatorController < ApplicationController
 
     def akinator_handler(user_status, message)
         case user_status.status
-        when pending
+        when "pending"
             handle_pending(user_status, message)
-        when asking
+        when "asking"
             handle_asking(user_status, message)
-        when guessing
+        when "guessing"
             handle_guessing(user_status, message)
-        when resuming
+        when "resuming"
             handle_resuming(user_status, message)
-        when begging
+        when "begging"
             handle_begging(user_status, message)
-        when registering
+        when "registering"
             handle_registering(user_status, message)
-        when confirming
+        when "confirming"
             handle_confirming(user_status, message)
         end
     end
@@ -89,7 +89,7 @@ class AkinatorController < ApplicationController
     end
 
     def get_user_status(user_id)
-        user_stauts = UserStatus.find_by(user_id: user_id)
+        user_status = UserStatus.find_by(user_id: user_id)
         # user_idを受け取り、UserStatusインスタンスを検索して、sessionに情報を保存
         if user_status.nil?
             # 照合して存在してない場合
@@ -317,7 +317,7 @@ class AkinatorController < ApplicationController
         return reply_content
     end
 
-    def set_butten_template(altText, title, text)
+    def set_butten_template(altText:, title:, text:)
         reply_content = {
             type: 'template',
             altText: altText,
@@ -341,7 +341,9 @@ class AkinatorController < ApplicationController
         if message == "はじめる"
             user_status.progress = Progress.create()
             # Progressをcreateして、UserStatusのprogressに代入
-            user_status.progress.candidates = Solution.all()
+            Solution.all.each do |solution|
+                user_status.progress.candidates = solution
+            end
             # Solutionの行を全て取得し（選択肢を全て取得）、UserStatusのprogressのcandidatesに代入
             question = select_next_question(user_status.progress)
             # 上で定義したselect_next_questionメソッド（返り値はq_score_tableのfeature.valueが最小のQuestionインスタンス）を呼び出しquestionに代入
