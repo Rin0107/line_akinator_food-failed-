@@ -353,7 +353,7 @@ class AkinatorController < ApplicationController
         if message == "はじめる"
             user_status.progress = Progress.create()
             # Progressをcreateして、UserStatusのprogressに代入
-            Solution.all.each do |solution|
+            Solution.in_batches do |solution|
                 user_status.progress.solutions << solution
             end
             # Solutionの行を全て取得し（選択肢を全て取得）、UserStatusのprogressのcandidatesに代入
