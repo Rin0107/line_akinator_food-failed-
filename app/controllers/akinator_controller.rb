@@ -127,9 +127,11 @@ class AkinatorController < ApplicationController
         end
         p "q_score_table: #{q_score_table}"
 
+        feature = Feature.preload(:question_id, :solution_id)
+
         progress.solutions.each do |s|
             q_score_table.keys.each do |q_id|
-                feature = Feature.find_by(question_id: q_id, solution_id: s.id)
+                feature = feature.find_by(question_id: q_id, solution_id: s.id)
                 # 絞り込んだquestion_idと候補群のsolution_idでFeatureインスタンスを取得し代入。これをprogress.candidatesとq_score_tableでループ回す
                 if feature.present?
                     q_score_table[q_id] += feature.value
@@ -162,7 +164,7 @@ class AkinatorController < ApplicationController
         end
         if next_question
             # next_questionが存在する場合
-            user_status.progress.latest_question.update(question_id: next_question.id)
+            user_status.progress.latest_questions.update(question_id: next_question.id)
         end
     end
 
