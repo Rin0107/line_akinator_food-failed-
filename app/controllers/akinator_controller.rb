@@ -120,7 +120,7 @@ class AkinatorController < ApplicationController
         q_score_table = related_question_set.to_a.each{|q_id| {q_id => 0.0}}
         # candidatesのfeaturesを導くquestion_id（重複なし）をリスト型にして、キーとして繰り返し代入し、valueは0.0としておく
         progress.solutions.each do |s|
-            q_score_table.each do |q_id|
+            q_score_table.keys.each do |q_id|
                 feature = Feature.find_by(question_id: q_id, solution_id: s.id)
                 # 絞り込んだquestion_idと候補群のsolution_idでFeatureインスタンスを取得し代入。これをprogress.candidatesとq_score_tableでループ回す
                 if feature.present?
@@ -339,8 +339,6 @@ class AkinatorController < ApplicationController
     # GameStatusがPendingの場合akinator_handlerで呼び出されるメソッド、引数はUserStatus, message、返り値は配列[(text, items)]
     def handle_pending(user_status, message)
         if message == "はじめる"
-            message = simple_text("準備中・・・")
-            reply_content(event, message)
             user_status.progress = Progress.create()
             # Progressをcreateして、UserStatusのprogressに代入
             Solution.all.each do |solution|
