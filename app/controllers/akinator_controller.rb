@@ -237,7 +237,7 @@ class AkinatorController < ApplicationController
     def push_answer(progress, answer_msg)
         answer = Answer.create()
         # Answerをcreateしてanswerに代入
-        answer.question << progress.questions
+        answer.question = progress.questions
         # progress.latest_questionを、createしたanwerに関連づいたquestionに代入
         if answer_msg == "はい"
             # answer_msgが"はい"の場合、Answerのvalueに1.0を代入、
