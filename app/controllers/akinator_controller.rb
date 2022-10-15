@@ -127,11 +127,11 @@ class AkinatorController < ApplicationController
         end
         p "q_score_table: #{q_score_table}"
 
-        features = Feature.eager_load(:question, :solution)
+        # features = Feature.eager_load(:question, :solution)
 
         progress.solutions.each do |s|
             q_score_table.keys.each do |q_id|
-                feature = features.find_by(question_id: q_id, solution_id: s.id)
+                feature = Feature.find_by(question_id: q_id, solution_id: s.id)
                 # 絞り込んだquestion_idと候補群のsolution_idでFeatureインスタンスを取得し代入。これをprogress.candidatesとq_score_tableでループ回す
                 if feature.present?
                     q_score_table[q_id] += feature.value
@@ -164,7 +164,8 @@ class AkinatorController < ApplicationController
         end
         if next_question
             # next_questionが存在する場合
-            user_status.progress.latest_questions.update(question_id: next_question.id)
+            user_status.progress.questions << next_question
+            # user_status.progressとquestionはthrough: :latest_question
         end
     end
 
@@ -236,9 +237,8 @@ class AkinatorController < ApplicationController
     def push_answer(progress, answer_msg)
         answer = Answer.create()
         # Answerをcreateしてanswerに代入
-        answer.question = progress.latest_question
+        answer.question << progress.questions
         # progress.latest_questionを、createしたanwerに関連づいたquestionに代入
-        # ?railsのアソシエーションメソッドを用いる必要があるかも？
         if answer_msg == "はい"
             # answer_msgが"はい"の場合、Answerのvalueに1.0を代入、
             answer.value = 1.0
