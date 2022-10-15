@@ -157,7 +157,7 @@ class AkinatorController < ApplicationController
     end
 
     # UserStatusを更新してsave
-    def save_status(user_status, new_status=nil, next_question=nil)
+    def save_status(user_status, new_status: nil, next_question: nil)
         if new_status
             # new_statusが存在する場合
             user_status.update(status: new_status)
@@ -177,7 +177,7 @@ class AkinatorController < ApplicationController
         user_status.progress.destroy
         # UserStatusのprogressを削除
         # つまり、今回のUserの経過状況を全て削除
-        save_status(user_status, 'pending')
+        save_status(user_status, new_status: 'pending')
         # 上記を削除したUserStatusをsave
     end
 
@@ -364,7 +364,7 @@ class AkinatorController < ApplicationController
             # Solutionの行を全て取得し（選択肢を全て取得）、UserStatusのprogressのcandidatesに代入
             question = select_next_question(user_status.progress)
             # 上で定義したselect_next_questionメソッド（返り値はq_score_tableのfeature.valueが最小のQuestionインスタンス）を呼び出しquestionに代入
-            save_status(user_status, 'asking', question)
+            save_status(user_status, new_status: 'asking', next_question: question)
             # 上で定義したsave_statusメソッドを呼び出す（引数は、UserStatusインスタンス, GameState, Questionインスタンス）
             # ?'asking'で指定できるのか？番号の必要あり？
             reply_content = set_confirm_template(question.message)
@@ -396,7 +396,7 @@ class AkinatorController < ApplicationController
             if can_decide(s_score_table, old_s_score_table).blank?
                 # s_score_tableとold_s_score_tableを比較したりして、選択肢が変わった場合（返り値がtrueで無い場合）
                 question = select_next_question(user_status.progress)
-                save_status(user_status, next_question=question)
+                save_status(user_status, next_question: question)
                 reply_content = set_confirm_template(question.message)
                 # ser_confirm_templateでquestion.messageに対して「はい」「いいえ」の確認テンプレートを作成、返り値はreply_content={}
             else
@@ -404,7 +404,7 @@ class AkinatorController < ApplicationController
                 most_likely_solution = guess_solution(s_score_table)
                 # 現在のs_score_tanleを引数に、最もAnswersとFeatureが近いSolutionを取得して代入
                 question_message = "思い浮かべているのは\n\n" + most_likely_solution.name + "\n\nですか?"
-                save_status(user_status, 'guessing')
+                save_status(user_status, new_status: 'guessing')
                 # GameStateをGuessingにして、save_status
                 reply_content = set_confirm_template(question_message)
                 # ser_confirm_templateでquestion_messageに対して「はい」「いいえ」の確認テンプレートを作成、返り値はreply_content={}
@@ -430,7 +430,7 @@ class AkinatorController < ApplicationController
         elsif message == "いいえ"
             # most_likely_solutionが当たった場合
             reply_content = set_confirm_template("ありゃ、ごめんなさい！続けて質問していいですか？")
-            save_status(user_status, 'resuming')
+            save_status(user_status, new_status: 'resuming')
             # UserStatusは変わらないが、GameStateをGUESSINGからRESUMINGに更新
         else
             # ["はい", "いいえ"]がmessageに含まれない場合
@@ -449,14 +449,14 @@ class AkinatorController < ApplicationController
             # つまり、これまでの回答で絞り込んだcandidatesを選択肢全てにする
             question = select_next_question(user_status.progress)
             reply_content = set_confirm_template(question.message)
-            save_status(user_status, 'asking', question)
+            save_status(user_status, new_status: 'asking', next_question: question)
             # GamestateをAskingにする。next_questionもある。
         elsif message == "いいえ"
             # 外して、続けない場合
             items = user_status.progress.candidates.first(5).each{|s| [s.name]}
             # reply_content用にitemsを用意。中身はこれまでで絞り込んだcandidatesを順に5個まで
             reply_content = simple_text("じゃあ、以下の中に食べたいものがあったらその名前を打って教えて下さい！\n#{items.join("\n")}")
-            save_status(user_status, 'begging')
+            save_status(user_status, new_status: 'begging')
             # user_status.statusをbeggingに更新
         else
             # ["はい", "いいえ"]がmessageに含まれない場合
@@ -476,12 +476,12 @@ class AkinatorController < ApplicationController
             # 教えてもらった本当の解答を引数に、本当の解答のFeature.valueを今回の回答に更新し、新しくQuestionとFeatureがあった場合は新規作成
             reset_status(user_status)
             # 今回のAnswerとUserStatusのprogressを全て削除
-            save_status(user_status, 'pending')
+            save_status(user_status, new_status: 'pending')
             # GameStateをPendingに更新
             reply_content = simple_text("教えてくれてありがとう、じゃあそれ食べに行こう！")
         else
             # 当てはまらなかった場合
-            save_status(user_status, 'registering')
+            save_status(user_status, new_status: 'registering')
             # user_status.statusをregisteringに変更
             reply_content = set_butten_template(
                 altText: "ごめんなさい。。。",
@@ -503,7 +503,7 @@ class AkinatorController < ApplicationController
         user_status.progress.prepared_solution = prepared_solution
         # UserStatesのProgressのprepared_solutionに代入
         # これでprepared_solutionとprogressが関連づいた？
-        save_status(user_status, 'confirming')
+        save_status(user_status, new_status: 'confirming')
         # user_status.statusをconfirmingに更新
         reply_content = set_confirm_template("思い浮かべていたのは\n\n#{mesasge}\n\nでいいですか？")
         return reply_content
@@ -526,7 +526,7 @@ class AkinatorController < ApplicationController
             update_features(user_status.progress, new_solution)
             # new_solutionのFeature.valueを更新して、新しくQuestionとFeatureがあった場合は新規作成
             reply_content = simple_text("#{name}ですね、覚えておきます。ありがとうございました！")
-            save_status(user_status, 'pending')
+            save_status(user_status, new_status: 'pending')
             # user_status.statusをpendingに更新
             reset_status(user_status)
             # 今回のAnswerとUserStatusのprogressを全て削除
@@ -534,7 +534,7 @@ class AkinatorController < ApplicationController
             # handle_registeringで提示したQuickMessageFormに対して"いいえ"の場合
             dpre_solution.destroy
             # pre_solutionをテーブルから削除
-            save_status(user_status, 'registering')
+            save_status(user_status, new_status: 'registering')
             # user_status.statusをregisteringに更新
             reply_content = simple_text("ありゃ、もう一度食べたいものを教えて下さい")
         else
