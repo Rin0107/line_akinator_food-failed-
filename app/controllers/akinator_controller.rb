@@ -215,12 +215,14 @@ class AkinatorController < ApplicationController
     def update_candidates(s_score_table)
         score_mean = s_score_table.values.sum(0.0) / s_score_table.values.length
         # s_score_tableのvaluesを取得し合計と要素数から、平均値を取得
+        s_ids = []
         s_score_table.each do |s_id, score|
             if score >= score_mean
-                return Solution.find(s_id)
+                s_ids.push(s_id)
                 # s_score_tableのscoreがscore_mean以上の場合、そのs_idのSolutionの行を取得
             end
         end
+        return Solution.where(id: s_ids)
     end
 
     # 決定可能か判断、引数はs_score_table, old_s_score_table、返り値はboolen
@@ -383,9 +385,9 @@ class AkinatorController < ApplicationController
             old_s_score_table = gen_solution_score_table(user_status.progress)
             # 現在のs_score_tableをold_s_score_tableに代入
             # これで、ProgressのAnswerが変わり、現在のスコアを古いものとして代入したので、s_score_tableを変更する準備が整った
-            user_status.progress.candidates = update_candidates(old_s_score_table)
+            user_status.progress.solutions = update_candidates(old_s_score_table)
             # update_candidatesメソッドでSolution.valueの平均以上の選択肢を取得し、Progressのcandidatesが更新された
-            user_status.progress.candidates.each do |c|
+            user_status.progress.solutions.each do |c|
                 p ("candidate=> id: #{c.id}, name: #{c.name}")
                 # ?候補：id:, name:""でプリント
             end
