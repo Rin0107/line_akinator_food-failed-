@@ -1,5 +1,6 @@
 class Question < ApplicationRecord
-    belongs_to :progress
+    has_one :latest_question
+    belongs_to :progress, through: :latest_question
     has_many :features
     has_many :answers
 end
