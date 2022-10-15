@@ -184,10 +184,13 @@ class AkinatorController < ApplicationController
     # 現の選択肢のスコアテーブル、引数はUserStatusのprogress
     # 返り値はvalueが小さい順の連想配列s_score_table
     def gen_solution_score_table(progress)
-        s_score_table = progress.candidates.each{|s| {s.id => 0.0}}
-        # solutionのスコアテーブルとして、Progressのcandidatesレコード（Solutionの行になる？）を繰り返しsに代入して、Solutionのidをキーに。
-        # valueは全て0.0（select_next_questionと同じ手法）
-        s_score_table.each do |s_id|
+        s_score_table = {}
+        progress.solutions.ids.each do |s|
+            # solutionのスコアテーブルとして、Progressのcandidatesレコード（Solutionの行になる？）を繰り返しsに代入して、Solutionのidをキーに。
+            # valueは全て0.0（select_next_questionと同じ手法）
+            s_score_table[s] = 0.0
+        end
+        s_score_table.keys.each do |s_id|
             progress.answers.each do |ans|
                 # progressと関連付くanswersを繰り返しansに代入
                 feature = Feature.find_by(question_id: ans.question_id, solution_id: s_id)
