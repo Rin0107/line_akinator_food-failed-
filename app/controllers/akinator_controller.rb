@@ -110,15 +110,23 @@ class AkinatorController < ApplicationController
         # 要素の順序を保持しない点などの特徴がある。
         progress.solutions.each do |s|
             # progressはCandidatesクラス（中間テーブル）を持ってsolutionと関連づいている
-            q_set = s.features.each{|f| [f.question_id]}
-            # Solutionモデルのfeaturesレコードを順番にfに代入して、Featuresのquestion_idをq_setに代入
-            # つまり、候補群の持つfeaturesを導くquestionのidをリスト型でq_setに代入
-            related_question_set.add(q_set)
-            # set型のrelated_questionにq_setを代入すると、重複するqustion_idをまとめてset型にできる
+            s.features.each do |f|
+                # Solutionモデルのfeaturesレコードを順番にfに代入して、Featuresのquestion_idをq_setに代入
+                # つまり、候補群の持つfeaturesを導くquestionのidをリスト型でq_setに代入
+                # set型のrelated_questionにq_setを代入すると、重複するqustion_idをまとめてset型にできる
+                q_set = f.question_id
+                related_question_set.add(q_set)
+            end
         end
+        p "related_question_set: #{related_question_set}"
 
-        q_score_table = related_question_set.to_a.each{|q_id| {q_id => 0.0}}
-        # candidatesのfeaturesを導くquestion_id（重複なし）をリスト型にして、キーとして繰り返し代入し、valueは0.0としておく
+        q_score_table = {}
+        related_question_set.each do |q_id|
+            # candidatesのfeaturesを導くquestion_id（重複なし）をリスト型にして、キーとして繰り返し代入し、valueは0.0としておく
+            q_score_table[q_id] = 0.0
+        end
+        p "q_score_table: #{q_score_table}"
+
         progress.solutions.each do |s|
             q_score_table.keys.each do |q_id|
                 feature = Feature.find_by(question_id: q_id, solution_id: s.id)
@@ -134,10 +142,12 @@ class AkinatorController < ApplicationController
                 # 1.0（ハイ）と-1.0（イイエ）が混在するquestion（valueが0.0に近い）ということは、その質問の回答によって選択肢が多く絞り込まれる。
             end
         end
-        q_score_table = q_score_table.each{|key, value| {key: abs(value)}}
+        q_score_table.each do |key, value|
+            q_score_table[key] = value.abs
+        end
         # q_score_tableのvalueを絶対値に。valueが大きい→その質問に対して選択肢は似た回答を持つ→その質問をしてもあまり絞り込めない、となる連想配列が完成
         p ("[select_next_question] q_score_table=> #{q_score_table}")
-        next_q_id = q_score_table.min{|x, y| x[1] <=> y[1]}
+        next_q_id = q_score_table.key(q_score_table.values.min{|x, y| x <=> y})
         # 最も絶対値が小さいquestionということは、その質問の回答が分かれる→その質問の回答によって選択肢が多く絞り込まれる。
         # rubyのmin,maxは、hashの場合、x=>[key,value], y=>[key,value] hash.eachだと、|x, y|と書くと、x=>key, y=>valueなのに…
         return Question.find(next_q_id)
