@@ -114,12 +114,12 @@ class AkinatorController < ApplicationController
         end
         done_question_ids = done_question_set.to_a
         # set型をarrayに変換
-        rest_quesitons = Question.where.not(id: done_question_ids).map(&:id)
+        rest_questions = Question.where.not(id: done_question_ids).map(&:id)
         # これまでに回答したQuestionを除くQuestionを取得し、配列で取得
         p "related_question_set: #{rest_questions}"
 
         q_score_table = {}
-        rest_quesitons.each do |q_id|
+        rest_questions.each do |q_id|
             # candidatesのfeaturesを導くquestion_id（重複なし）をリスト型にして、キーとして繰り返し代入し、valueは0.0としておく
             q_score_table[q_id] = 0.0
         end
