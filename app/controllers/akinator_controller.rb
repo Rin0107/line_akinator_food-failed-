@@ -104,24 +104,22 @@ class AkinatorController < ApplicationController
     # progressはUserStatusのレコード
     # 返り値は、q_score_tableのfeature.valueが最小のQuestionインスタンス
     def select_next_question(progress)
-        related_question_set = Set.new()
+        done_question_set = Set.new()
         # set型とは、重複した値を格納できない点や、
         # 添え字やキーなどの概念がなく、ユニークな要素である点、
         # 要素の順序を保持しない点などの特徴がある。
-        progress.solutions.each do |s|
-            # progressはCandidatesクラス（中間テーブル）を持ってsolutionと関連づいている
-            s.features.preload(:question).each do |f|
-                # Solutionモデルのfeaturesレコードを順番にfに代入して、Featuresのquestion_idをq_setに代入
-                # つまり、候補群の持つfeaturesを導くquestionのidをリスト型でq_setに代入
-                # set型のrelated_questionにq_setを代入すると、重複するqustion_idをまとめてset型にできる
-                q_set = f.question_id
-                related_question_set.add(q_set)
-            end
+        progress.answers.each do |ans|
+            done_question_set.add(ans.question_id)
+            # これまでに回答したQuestionのidをsetにadd
         end
-        p "related_question_set: #{related_question_set}"
+        done_question_ids = done_question_set.to_a
+        # set型をarrayに変換
+        rest_quesitons = Question.where.not(id: done_question_ids).map(&:id)
+        # これまでに回答したQuestionを除くQuestionを取得し、配列で取得
+        p "related_question_set: #{rest_questions}"
 
         q_score_table = {}
-        related_question_set.each do |q_id|
+        rest_quesitons.each do |q_id|
             # candidatesのfeaturesを導くquestion_id（重複なし）をリスト型にして、キーとして繰り返し代入し、valueは0.0としておく
             q_score_table[q_id] = 0.0
         end
@@ -185,10 +183,10 @@ class AkinatorController < ApplicationController
     # 返り値はvalueが小さい順の連想配列s_score_table
     def gen_solution_score_table(progress)
         s_score_table = {}
-        progress.solutions.ids.each do |s|
+        progress.solutions.ids.each do |s_id|
             # solutionのスコアテーブルとして、Progressのcandidatesレコード（Solutionの行になる？）を繰り返しsに代入して、Solutionのidをキーに。
             # valueは全て0.0（select_next_questionと同じ手法）
-            s_score_table[s] = 0.0
+            s_score_table[s_id] = 0.0
         end
         s_score_table.keys.each do |s_id|
             progress.answers.each do |ans|
@@ -259,7 +257,7 @@ class AkinatorController < ApplicationController
 
     # s_score_tableから、現在最もAnswerとFeatureが近いSolutionを取得、引数はs_score_table、返り値はSolutionインスタンス
     def guess_solution(s_score_table)
-        return Solution.find(s_score_table.max{|x, y| x[1] <=> y[1]})
+        return Solution.find(s_score_table.key(s_score_table.values.max{|x, y| x <=> y}))
         # s_score_tableのvalueが最大値のs.idを取得し、該当のSolutionの行を取得
     end
 
@@ -275,14 +273,18 @@ class AkinatorController < ApplicationController
             # 正解した時点のs_score_tableの最も可能性の高いSolutionインスタンス（正解）をsolutionに代入
         end
 
-        qid_feature_table = solution.features.each{|f| {f.question_id => f}}
+        qid_feature_table = {}
+        solution.features.each do |f|
+            qid_feature_table[f.question_id] = f.value
+        end
         # 正解のsolutionのfeaturesをfに繰り返し代入し、キー：そのquestion_id、value：そのvalueとした連想配列をqid_feature_tableに代入
-        progress.answer.each do |ans|
+        progress.answers.each do |ans|
             # progressのanswersを繰り返しansに代入し、
             if qid_feature_table.key?(ans.question_id)
                 # もし、ansのquestion_idがqid_feature_tableに含まれていれば
                 # （つまり、正解のsolutionのfeaturesを導いた質問の中に、これまでの回答が含まれている場合）
-                feature = qid_feature_table[ans.question_id]
+                feature = solution.features.find_by(question_id: ans.question_id)
+                feature.value = qid_feature_table[ans.question_id]
                 # キーがans.question_idであるqid_featuer_tableのvalueをfeatureに代入
                 # （つまり、正解のFeatureのvalueを回答のvalueに更新するために、
                 # これまでの回答の中の一つの質問とQuestionのidが一致する、正解のsolutionのfeature.valueをfeatureに代入）
@@ -396,9 +398,20 @@ class AkinatorController < ApplicationController
             if can_decide(s_score_table, old_s_score_table).blank?
                 # s_score_tableとold_s_score_tableを比較したりして、選択肢が変わった場合（返り値がtrueで無い場合）
                 question = select_next_question(user_status.progress)
-                save_status(user_status, next_question: question)
-                reply_content = set_confirm_template(question.message)
-                # ser_confirm_templateでquestion.messageに対して「はい」「いいえ」の確認テンプレートを作成、返り値はreply_content={}
+                if question.id == user_status.progress.questions.last.id
+                    most_likely_solution = guess_solution(s_score_table)
+                    # 現在のs_score_tanleを引数に、最もAnswersとFeatureが近いSolutionを取得して代入
+                    question_message = "思い浮かべているのは\n\n" + most_likely_solution.name + "\n\nですか?"
+                    save_status(user_status, new_status: 'guessing')
+                    # GameStateをGuessingにして、save_status
+                    reply_content = set_confirm_template(question_message)
+                    # ser_confirm_templateでquestion_messageに対して「はい」「いいえ」の確認テンプレートを作成、返り値はreply_content={}
+                else
+                    save_status(user_status, next_question: question)
+                    reply_content = set_confirm_template(question.message)
+                    # ser_confirm_templateでquestion.messageに対して「はい」「いいえ」の確認テンプレートを作成、返り値はreply_content={}
+                end
+
             else
                 # 選択肢が変わらなかった場合（返り値がtrueの場合）
                 most_likely_solution = guess_solution(s_score_table)
@@ -444,7 +457,11 @@ class AkinatorController < ApplicationController
     def handle_resuming(user_status, message)
         if message == "はい"
             # 外したが、続ける場合
-            user_status.progress.candidates = Solution.all()
+            Solution.in_batches do |solution|
+                # UserStatusのProgressのcandidatesをSolutionのインスタンスを全てにする
+                # つまり、これまでの回答で絞り込んだcandidatesを選択肢全てにする
+                user_status.progress.solutions << solution
+            end
             # UserStatusのProgressのcandidatesをSolutionのインスタンスを全てにする
             # つまり、これまでの回答で絞り込んだcandidatesを選択肢全てにする
             question = select_next_question(user_status.progress)
@@ -453,7 +470,10 @@ class AkinatorController < ApplicationController
             # GamestateをAskingにする。next_questionもある。
         elsif message == "いいえ"
             # 外して、続けない場合
-            items = user_status.progress.candidates.first(5).each{|s| [s.name]}
+            items = []
+            user_status.progress.solutions.first(5).each do |s|
+                items.push(s.name)
+            end
             # reply_content用にitemsを用意。中身はこれまでで絞り込んだcandidatesを順に5個まで
             reply_content = simple_text("じゃあ、以下の中に食べたいものがあったらその名前を打って教えて下さい！\n#{items.join("\n")}")
             save_status(user_status, new_status: 'begging')
@@ -468,11 +488,16 @@ class AkinatorController < ApplicationController
     # handle_resumingで続けない場合、candidatesと、"どれも当てはまらない"を提示して、GameStateがBeggingになり呼び出されるメソッド
     # 引数はUserStatusとmessage、返り値は配列[(text, items)]
     def handle_begging(user_status, message)
-        if Solution.all().each{|s| [s.name]}.include?(message)
+        s_names = []
+        Solution.all.each do |s|
+            s_names.push(s.name)
+        end
+
+        if s_names.include?(message)
             # candidatesと"どれも当てはまらない"への返信がSolution全ての中の一つに当てはまるかを繰り返しチェックし、存在する場合
             true_solution = Solution.find_by(name: message)
             # messsage(教えてもらったSolutionのname)とSolution.nameが一致する最初の一つを本当の解答として代入
-            update_features(user_status.progress, true_solution)
+            update_features(user_status.progress, true_solution: true_solution)
             # 教えてもらった本当の解答を引数に、本当の解答のFeature.valueを今回の回答に更新し、新しくQuestionとFeatureがあった場合は新規作成
             reset_status(user_status)
             # 今回のAnswerとUserStatusのprogressを全て削除
@@ -485,7 +510,7 @@ class AkinatorController < ApplicationController
             # user_status.statusをregisteringに変更
             reply_content = set_butten_template(
                 altText: "ごめんなさい。。。",
-                title: "分かりませんでした…。食べたいものがあったら打って教えて下さい。\n無ければ「終了」を押してね…。",
+                title: "分かりませんでした…。今食べたいものがあったら打って教えて下さい。\n無ければ「終了」を押してね…。",
                 text: "終了"
             )
         end
