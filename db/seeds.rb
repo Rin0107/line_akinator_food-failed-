@@ -626,7 +626,9 @@ end
 if add_questions.present? && add_features_matrix.present?
     solutions = Solution.all
 
-    if add_features_matrix.length == solutions.length
+    solutions_length = solutions.length
+
+    if add_features_matrix.length == solutions_length
         # 最新のSolutionのレコード数とadd_features_matrixの要素数が一致する場合
 
         a_f_m_length_array = []
@@ -645,12 +647,12 @@ if add_questions.present? && add_features_matrix.present?
 
             added_q = Question.last(add_questions.length)
             for q_l in 1..added_q.length do
-                for s in solutions do
-                    value = add_features_matrix[s.id-1][q_l-1]
+                for s_l in 1..solutions_length do
+                    value = add_features_matrix[s_l-1][q_l-1]
 
                     f = Feature.new()
                     f.question = added_q[q_l -1]
-                    f.solution = s
+                    f.solution = solutions[s_l-1]
                     f.value = value
                     f.save
                 end
