@@ -477,22 +477,21 @@ class AkinatorController < ApplicationController
     def handle_resuming(user_status, message)
         if message == "はい"
             # 外したが、続ける場合
-            all_solution = Solution.all
-            user_status.progress.solutions << all_solution
-            # UserStatusのProgressのcandidatesをSolutionのインスタンスを全てにする
-            # つまり、これまでの回答で絞り込んだcandidatesを選択肢全てにする
             question = select_next_question(user_status.progress)
-
             if question.nil?
                 items = []
                 user_status.progress.solutions.first(5).each do |s|
                     items.push(s.name)
                 end
                 # reply_content用にitemsを用意。中身はこれまでで絞り込んだcandidatesを順に5個まで
-                reply_content = simple_text("質問がなくなってしまいました…。\n以下の中に食べたいものがあったらその名前を打って教えて下さい！\n\n#{items.join("\n")}")
+                reply_content = simple_text("質問がなくなってしまいました…。\n以下が質問の結果に一番近いので、食べたいものがあれば打って教えて下さい！\n\n#{items.join("\n")}\n\nピンとくるものが無ければ、「ない」と打ってね。")
                 save_status(user_status, new_status: 'begging')
                 # user_status.statusをbeggingに更新
             else
+                all_solution = Solution.all
+                user_status.progress.solutions << all_solution
+                # UserStatusのProgressのcandidatesをSolutionのインスタンスを全てにする
+                # つまり、これまでの回答で絞り込んだcandidatesを選択肢全てにする
                 reply_content = set_confirm_template(question.message)
                 save_status(user_status, new_status: 'asking', next_question: question)
                 # GamestateをAskingにする。next_questionもある。
@@ -505,7 +504,7 @@ class AkinatorController < ApplicationController
                 items.push(s.name)
             end
             # reply_content用にitemsを用意。中身はこれまでで絞り込んだcandidatesを順に5個まで
-            reply_content = simple_text("じゃあ、以下の中に食べたいものがあったらその名前を打って教えて下さい！\n\n#{items.join("\n")}\n\n無ければ、「ない」と打ってね！")
+            reply_content = simple_text("OK！\n以下が質問の結果に一番近いので、食べたいものがあれば打って教えて下さい！\n\n#{items.join("\n")}\n\nピンとくるものが無ければ、「ない」と打ってね。")
             save_status(user_status, new_status: 'begging')
             # user_status.statusをbeggingに更新
         else
