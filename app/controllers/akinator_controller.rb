@@ -292,6 +292,9 @@ class AkinatorController < ApplicationController
                 # もし、ansのquestion_idがqid_feature_tableに含まれていれば
                 # （つまり、正解のsolutionのfeaturesを導いた質問の中に、これまでの回答が含まれている場合）
                 feature = solution.features.find_by(question_id: ans.question_id)
+                if feature.nil?
+                    feature = Feature.create(question_id: ans.question.id, solution_id: solution.id)
+                end
                 feature.value = qid_feature_table[ans.question_id]
                 # キーがans.question_idであるqid_featuer_tableのvalueをfeatureに代入
                 # （つまり、正解のFeatureのvalueを回答のvalueに更新するために、
@@ -299,13 +302,10 @@ class AkinatorController < ApplicationController
             else
                 # それ以外の場合（つまり、正解のsolutionのfeaturesを導いた質問の中に、これまでの回答が含まれていない場合）
                 # つまり、どこかのタイミングで新しくできた質問を今回答え、新しくできた質問に対応するfeature.valueが今回の正解の選択肢になかった場合
-                feature = Feature.create()
+                feature = Feature.create(question_id: ans.question.id, solution_id: solution.id, value: ans.value)
                 # Featureをcreateして
-                feature.question_id = ans.question_id
                 # これまでの回答のQuestion.idを新しいFeature.question_idに代入
-                feature.solution_id = solution.id
                 # true_solution?又は、現在のs_score_tableの最も可能性の高いSolutionインスタンスのidを新しいFeature.solution_idに代入
-                feature.value = ans.value
                 # これまでの回答のvalueをFeature.valueに代入
             end
             session[:feature] = feature
