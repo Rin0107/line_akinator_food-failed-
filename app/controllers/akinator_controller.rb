@@ -421,7 +421,7 @@ class AkinatorController < ApplicationController
                 if question.nil? || question.id == user_status.progress.questions.last.id
                     most_likely_solution = guess_solution(s_score_table)
                     # 現在のs_score_tanleを引数に、最もAnswersとFeatureが近いSolutionを取得して代入
-                    question_message = "思い浮かべているのは\n\n" + most_likely_solution.name + "\n\nですか?"
+                    question_message = "あなたが今食べたいのは\n\n" + most_likely_solution.name + "\n\nかと思うけど、どうかな?"
                     save_status(user_status, new_status: 'guessing')
                     # GameStateをGuessingにして、save_status
                     reply_content = set_confirm_template(question_message)
@@ -436,7 +436,7 @@ class AkinatorController < ApplicationController
                 # 選択肢が変わらなかった場合（返り値がtrueの場合）
                 most_likely_solution = guess_solution(s_score_table)
                 # 現在のs_score_tanleを引数に、最もAnswersとFeatureが近いSolutionを取得して代入
-                question_message = "思い浮かべているのは\n\n" + most_likely_solution.name + "\n\nですか?"
+                question_message = "あなたが今食べたいのは\n\n" + most_likely_solution.name + "\n\nかと思うけど、どうかな?"
                 save_status(user_status, new_status: 'guessing')
                 # GameStateをGuessingにして、save_status
                 reply_content = set_confirm_template(question_message)
