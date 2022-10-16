@@ -561,15 +561,17 @@ class AkinatorController < ApplicationController
         # 教えてもらった答えのnameをnameに代入しておく
         if message == "はい"
             # handle_registeringで提示したset_confirm_templateの「はい」を押下した場合
+            new_solution = Solution.create(name: name)
+            # Solutionをnewして教えてもらった答えのnameを代入
             pre_solution.destroy
             # pre_solutionをテーブルから削除
-            new_solution = Solution.create()
-            # Solutionをnewして代入
-            new_solution.name = name
-            # newしたSolutionのnameに、教えてもらった答えのnameを代入
-            update_features(user_status.progress, new_solution)
+            update_features(user_status.progress, true_solution: new_solution)
             # new_solutionのFeature.valueを更新して、新しくQuestionとFeatureがあった場合は新規作成
-            reply_content = simple_text("#{name}ですね、覚えておきます。ありがとうございました！")
+            reply_content = set_butten_template(
+                altText: "覚えました！",
+                title: "#{name}ですね、覚えておきます。ありがとうございました！\nまた遊ぶときは「はじめる」をタップ！",
+                text: "はじめる")
+
             save_status(user_status, new_status: 'pending')
             # user_status.statusをpendingに更新
             reset_status(user_status)
