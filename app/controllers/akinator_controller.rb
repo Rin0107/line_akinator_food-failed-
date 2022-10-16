@@ -262,7 +262,6 @@ class AkinatorController < ApplicationController
         answer = Answer.create()
         # Answerをcreateしてanswerに代入
         answer.question = progress.questions.find_by(id: progress.latest_questions.last.question_id)
-        p "最後の質問: #{progress.questions.find_by(id: progress.latest_questions.last.question_id).id}"
         # progress.latest_questionを、createしたanwerに関連づいたquestionに代入
         if answer_msg == "はい"
             # answer_msgが"はい"の場合、Answerのvalueに1.0を代入、
@@ -384,9 +383,6 @@ class AkinatorController < ApplicationController
             # Progressをcreateして、UserStatusのprogressに代入
             all_solution = Solution.all
             user_status.progress.solutions << all_solution
-            # Solution.in_batches do |solution|
-            #     user_status.progress.solutions << solution
-            # end
             # Solutionの行を全て取得し（選択肢を全て取得）、UserStatusのprogressのcandidatesに代入
             question = select_next_question(user_status.progress)
             # 上で定義したselect_next_questionメソッド（返り値はq_score_tableのfeature.valueが最小のQuestionインスタンス）を呼び出しquestionに代入
@@ -481,11 +477,10 @@ class AkinatorController < ApplicationController
     def handle_resuming(user_status, message)
         if message == "はい"
             # 外したが、続ける場合
-            # Solution.in_batches do |solution|
-            #     # UserStatusのProgressのcandidatesをSolutionのインスタンスを全てにする
-            #     # つまり、これまでの回答で絞り込んだcandidatesを選択肢全てにする
-            #     user_status.progress.solutions << solution
-            # end
+            all_solution = Solution.all
+            user_status.progress.solutions << all_solution
+            # UserStatusのProgressのcandidatesをSolutionのインスタンスを全てにする
+            # つまり、これまでの回答で絞り込んだcandidatesを選択肢全てにする
             question = select_next_question(user_status.progress)
 
             if question.nil?
