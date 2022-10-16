@@ -591,7 +591,7 @@ class AkinatorController < ApplicationController
             # 今回のAnswerとUserStatusのprogressを全て削除
         elsif message == "いいえ"
             # handle_registeringで提示したQuickMessageFormに対して"いいえ"の場合
-            dpre_solution.destroy
+            pre_solution.destroy
             # pre_solutionをテーブルから削除
             save_status(user_status, new_status: 'registering')
             # user_status.statusをregisteringに更新
