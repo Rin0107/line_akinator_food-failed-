@@ -67,7 +67,7 @@ class AkinatorController < ApplicationController
     def handle_message(event, user_id)
         if event.message['text'] == "終了"
             # 途中終了するときの処理
-            reply_content = set_butten_template(altText: "終了", title: "今回は終了しました。\nまた遊ぶときは「はじめる」をタップ！", text: "はじめる")
+            reply_content = set_butten_template(altText: "また遊んでね！", title: "今回は終了しました。\nまた遊ぶときは「はじめる」をタップ！", text: "はじめる")
             reply_content(event, reply_content)
             user_status = get_user_status(user_id)
             reset_status(user_status)
@@ -146,7 +146,7 @@ class AkinatorController < ApplicationController
                             # q_score_tableのそれぞれのvalueにfeature.valueを足す
                             # 
                             # 1.0（ハイ）と-1.0（イイエ）が混在するquestion（valueが0.0に近い）ということは、その質問の回答によって選択肢が多く絞り込まれる。
-                            q_score_table[q_id] += f["value"]
+                            q_score_table[q_id] += f['value']
                         else
                             # rest_questionsのidにリレーションを持つ、featureが無い場合（そのquestionに対するfeatureがnilの場合）
                             q_score_table[q_id] += 0.0
@@ -197,24 +197,31 @@ class AkinatorController < ApplicationController
     # 返り値はvalueが小さい順の連想配列s_score_table
     def gen_solution_score_table(progress)
         s_score_table = {}
-        progress.solutions.ids.each do |s_id|
+        solutions = progress.solutions.eager_load(:features)
+        solutions.ids.each do |s_id|
             # solutionのスコアテーブルとして、Progressのcandidatesレコード（Solutionの行になる？）を繰り返しsに代入して、Solutionのidをキーに。
             # valueは全て0.0（select_next_questionと同じ手法）
             s_score_table[s_id] = 0.0
         end
-        s_score_table.keys.each do |s_id|
+
+        solutions.each do |s|
             progress.answers.each do |ans|
                 # progressと関連付くanswersを繰り返しansに代入
-                feature = Feature.find_by(question_id: ans.question_id, solution_id: s_id)
-                # Featureのquestion_idがAnswerのquestion_id（回答した質問のid）と合致して、
-                # Featureのsolution_idがSolutionのidと合致する一つを取得して、featureに代入
-                if feature.present?
-                    s_score_table[s_id] += ans.value * feature.value
-                else
-                    s_score_table[s_id] += ans.value * 0.0
-                end
-                # s_score_tableのs_id（s.id）のvalueに、ans.value（回答のvalue）×用意してあるFeatureのvalueの積を足す。（0.0 + 1.0 or -1.0)
-                # 回答のvalueと用意してあるFeatureのvalueが一致していれば、1.0、一致しなければ-1.0がs_score_tableのvalueとなる
+                features = s.features.map {|f| f.attributes}
+                    # キャッシュしたsにリレーションのあるfeaturesをhashに!
+                    features.each do |f|
+                        # hashのfeatures
+                        question_id = f['question_id']
+                        if question_id == ans.question_id
+                            # s_score_tableのs.idのvalueに、ans.value（回答のvalue）×用意してあるFeatureのvalueの積を足す。（0.0 + 1.0 or -1.0)
+                            # 回答のvalueと用意してあるFeatureのvalueが一致していれば、1.0、一致しなければ-1.0がs_score_tableのvalueとなる
+                            s_score_table[s.id] += ans.value * f['value']
+                        else
+                            # rest_questionsのidにリレーションを持つ、featureが無い場合（そのquestionに対するfeatureがnilの場合）
+                            s_score_table[s.id] += ans.value * 0.0
+                        end
+                    end
+                
             end
         end
         s_score_table = s_score_table.sort{|x, y| x[1]<=>y[1]}.to_h
@@ -330,7 +337,7 @@ class AkinatorController < ApplicationController
     def set_confirm_template(question_message)
         reply_content = {
             type: 'template',
-            altText: "「はい」か「いいえ」をタップ。",
+            altText: "「はい」か「いいえ」で答えてね！",
             template: {
               type: 'confirm',
               text: "質問：" + question_message + "\n\n途中で終わる場合は「終了」と打って！",
@@ -503,7 +510,7 @@ class AkinatorController < ApplicationController
                 items.push(s.name)
             end
             # reply_content用にitemsを用意。中身はこれまでで絞り込んだcandidatesを順に5個まで
-            reply_content = simple_text("じゃあ、以下の中に食べたいものがあったらその名前を打って教えて下さい！\n\n#{items.join("\n")}")
+            reply_content = simple_text("じゃあ、以下の中に食べたいものがあったらその名前を打って教えて下さい！\n\n#{items.join("\n")}\n\n無ければ、「ない」と打ってね！")
             save_status(user_status, new_status: 'begging')
             # user_status.statusをbeggingに更新
         else
@@ -540,7 +547,7 @@ class AkinatorController < ApplicationController
             # 今回のAnswerとUserStatusのprogressを全て削除
             # user_status.statusをregisteringに変更
             reply_content = set_butten_template(
-                altText: "ごめんなさい。。。",
+                altText: "また遊んでね！",
                 title: "分かりませんでした…。次は当てます！\nまた遊ぶときは「はじめる」をタップ！",
                 text: "はじめる"
             )
