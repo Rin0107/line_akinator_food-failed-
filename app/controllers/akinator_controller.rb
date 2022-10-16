@@ -67,8 +67,8 @@ class AkinatorController < ApplicationController
     def handle_message(event, user_id)
         if event.message['text'] == "終了"
             # 途中終了するときの処理
-            message = simple_text("今回は終了しました。\nまた遊ぶときは「はじめる」と打ってね！")
-            reply_content(event, message)
+            reply_content = set_butten_template(altText: "終了", title: "今回は終了しました。\nまた遊ぶときは「はじめる」をタップ！", text: "はじめる")
+            reply_content(event, reply_content)
             user_status = get_user_status(user_id)
             reset_status(user_status)
         else
