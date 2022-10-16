@@ -109,14 +109,16 @@ class AkinatorController < ApplicationController
         # 添え字やキーなどの概念がなく、ユニークな要素である点、
         # 要素の順序を保持しない点などの特徴がある。
         progress.answers.each do |ans|
+            p ans
             done_question_set.add(ans.question_id)
             # これまでに回答したQuestionのidをsetにadd
         end
         done_question_ids = done_question_set.to_a
         # set型をarrayに変換
+        p "回答済み：#{done_question_ids}"
         rest_questions = Question.where.not(id: done_question_ids).map(&:id)
         # これまでに回答したQuestionを除くQuestionを取得し、配列で取得
-        p "related_question_set: #{rest_questions}"
+        p "rest_questions: #{rest_questions}"
 
         q_score_table = {}
         rest_questions.each do |q_id|
@@ -240,7 +242,8 @@ class AkinatorController < ApplicationController
     def push_answer(progress, answer_msg)
         answer = Answer.create()
         # Answerをcreateしてanswerに代入
-        answer.question = progress.questions.last
+        answer.question = progress.questions.find_by(id: progress.latest_questions.last.question_id)
+        p "最後の質問: #{progress.questions.find_by(id: progress.latest_questions.last.question_id).id}"
         # progress.latest_questionを、createしたanwerに関連づいたquestionに代入
         if answer_msg == "はい"
             # answer_msgが"はい"の場合、Answerのvalueに1.0を代入、
@@ -263,7 +266,7 @@ class AkinatorController < ApplicationController
 
     # 正解の場合等に呼び出されるメソッド。正解の選択肢が見つかった場合、今回の回答は全てその正解の選択肢のfeatureと考えられる。
     # なので、今回の質問と回答が正解の選択肢のQuestion_id,Feature_valueとして保持されている場合は更新し、保持されていない場合は新規作成する。 
-    def update_features(progress, true_solution=nil)
+    def update_features(progress, true_solution: nil)
         if true_solution.present?
             # true_solutionがfalse,nil以外の場合
             solution = true_solution
