@@ -130,21 +130,28 @@ class AkinatorController < ApplicationController
             end
             p "q_score_table: #{q_score_table}"
 
-            # features = Feature.eager_load(:question, :solution)
-
-            progress.solutions.each do |s|
+            # N+1問題を解決するために、、、ゴリ押しした。
+            solutions = progress.solutions.eager_load(:features)
+            # eager_loadでキャッシュ
+            solutions.each do |s|
+                # キャッシュしたsolution
                 q_score_table.keys.each do |q_id|
-                    feature = Feature.find_by(question_id: q_id, solution_id: s.id)
-                    # 絞り込んだquestion_idと候補群のsolution_idでFeatureインスタンスを取得し代入。これをprogress.candidatesとq_score_tableでループ回す
-                    if feature.present?
-                        q_score_table[q_id] += feature.value
-                    else
-                        q_score_table[q_id] += 0.0
+                    features = s.features.map {|f| f.attributes}
+                    # キャッシュしたsにリレーションのあるfeaturesをhashに!
+                    features.each do |f|
+                        # hashのfeatures
+                        question_id = f['question_id']
+                        # hashなのでキーからvalueを持ってこれる
+                        if question_id == q_id
+                            # q_score_tableのそれぞれのvalueにfeature.valueを足す
+                            # 
+                            # 1.0（ハイ）と-1.0（イイエ）が混在するquestion（valueが0.0に近い）ということは、その質問の回答によって選択肢が多く絞り込まれる。
+                            q_score_table[q_id] += f["value"]
+                        else
+                            # rest_questionsのidにリレーションを持つ、featureが無い場合（そのquestionに対するfeatureがnilの場合）
+                            q_score_table[q_id] += 0.0
+                        end
                     end
-                    # q_score_tableのそれぞれのvalueにfeature.valueを足す
-                    # これで候補群のfeatureを導くquesitonsのidをキーに持ち、
-                    # valueにはsolution_idとquestion_idが一致するfeature.valueを足し続ける。
-                    # 1.0（ハイ）と-1.0（イイエ）が混在するquestion（valueが0.0に近い）ということは、その質問の回答によって選択肢が多く絞り込まれる。
                 end
             end
             q_score_table.each do |key, value|
@@ -368,9 +375,11 @@ class AkinatorController < ApplicationController
         if message == "はじめる"
             user_status.progress = Progress.create()
             # Progressをcreateして、UserStatusのprogressに代入
-            Solution.in_batches do |solution|
-                user_status.progress.solutions << solution
-            end
+            all_solution = Solution.all
+            user_status.progress.solutions << all_solution
+            # Solution.in_batches do |solution|
+            #     user_status.progress.solutions << solution
+            # end
             # Solutionの行を全て取得し（選択肢を全て取得）、UserStatusのprogressのcandidatesに代入
             question = select_next_question(user_status.progress)
             # 上で定義したselect_next_questionメソッド（返り値はq_score_tableのfeature.valueが最小のQuestionインスタンス）を呼び出しquestionに代入
@@ -539,7 +548,7 @@ class AkinatorController < ApplicationController
         return reply_content
     end
 
-    
+
     # handle_beggingでSolutionsに該当のものがない場合、新規にSolutionを作成するメソッド
     # 引数はUserStatusとmessage、返り値は配列[(text, items)]
     def handle_registering(user_status, message)
