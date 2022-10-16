@@ -525,18 +525,22 @@ class AkinatorController < ApplicationController
             reply_content = simple_text("教えてくれてありがとう、じゃあそれ食べに行こう！")
         else
             # 当てはまらなかった場合
-            save_status(user_status, new_status: 'registering')
+            save_status(user_status, new_status: 'pending')
+            # user_status.statusをpendingに更新
+            reset_status(user_status)
+            # 今回のAnswerとUserStatusのprogressを全て削除
             # user_status.statusをregisteringに変更
             reply_content = set_butten_template(
                 altText: "ごめんなさい。。。",
-                title: "分かりませんでした…。\n今食べたいものがあったら打って教えて下さい。\n無ければ「終了」を押してね…。",
-                text: "終了"
+                title: "分かりませんでした…。次は当てます！\nまた遊ぶときは「はじめる」をタップ！",
+                text: "はじめる"
             )
         end
         return reply_content
     end
 
-    # handle_beggingで"どれも当てはまらない"の場合、"答えを入力してくださいな…"を提示し、GameStateがRegisteringになり呼び出されるメソッド
+    
+    # handle_beggingでSolutionsに該当のものがない場合、新規にSolutionを作成するメソッド
     # 引数はUserStatusとmessage、返り値は配列[(text, items)]
     def handle_registering(user_status, message)
         prepared_solution = PreparedSolution.create()
@@ -546,7 +550,6 @@ class AkinatorController < ApplicationController
         # message（教えてもらった答え）をnameとして代入
         user_status.progress.prepared_solution = prepared_solution
         # UserStatesのProgressのprepared_solutionに代入
-        # これでprepared_solutionとprogressが関連づいた？
         save_status(user_status, new_status: 'confirming')
         # user_status.statusをconfirmingに更新
         reply_content = set_confirm_template("思い浮かべていたのは\n\n#{message}\n\nでいいですか？")
