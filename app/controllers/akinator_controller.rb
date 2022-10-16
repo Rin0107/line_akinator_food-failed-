@@ -120,40 +120,45 @@ class AkinatorController < ApplicationController
         # これまでに回答したQuestionを除くQuestionを取得し、配列で取得
         p "rest_questions: #{rest_questions}"
 
-        q_score_table = {}
-        rest_questions.each do |q_id|
-            # candidatesのfeaturesを導くquestion_id（重複なし）をリスト型にして、キーとして繰り返し代入し、valueは0.0としておく
-            q_score_table[q_id] = 0.0
-        end
-        p "q_score_table: #{q_score_table}"
-
-        # features = Feature.eager_load(:question, :solution)
-
-        progress.solutions.each do |s|
-            q_score_table.keys.each do |q_id|
-                feature = Feature.find_by(question_id: q_id, solution_id: s.id)
-                # 絞り込んだquestion_idと候補群のsolution_idでFeatureインスタンスを取得し代入。これをprogress.candidatesとq_score_tableでループ回す
-                if feature.present?
-                    q_score_table[q_id] += feature.value
-                else
-                    q_score_table[q_id] += 0.0
-                end
-                # q_score_tableのそれぞれのvalueにfeature.valueを足す
-                # これで候補群のfeatureを導くquesitonsのidをキーに持ち、
-                # valueにはsolution_idとquestion_idが一致するfeature.valueを足し続ける。
-                # 1.0（ハイ）と-1.0（イイエ）が混在するquestion（valueが0.0に近い）ということは、その質問の回答によって選択肢が多く絞り込まれる。
+        if rest_questions.empty?
+            return nil
+        else
+            q_score_table = {}
+            rest_questions.each do |q_id|
+                # candidatesのfeaturesを導くquestion_id（重複なし）をリスト型にして、キーとして繰り返し代入し、valueは0.0としておく
+                q_score_table[q_id] = 0.0
             end
+            p "q_score_table: #{q_score_table}"
+
+            # features = Feature.eager_load(:question, :solution)
+
+            progress.solutions.each do |s|
+                q_score_table.keys.each do |q_id|
+                    feature = Feature.find_by(question_id: q_id, solution_id: s.id)
+                    # 絞り込んだquestion_idと候補群のsolution_idでFeatureインスタンスを取得し代入。これをprogress.candidatesとq_score_tableでループ回す
+                    if feature.present?
+                        q_score_table[q_id] += feature.value
+                    else
+                        q_score_table[q_id] += 0.0
+                    end
+                    # q_score_tableのそれぞれのvalueにfeature.valueを足す
+                    # これで候補群のfeatureを導くquesitonsのidをキーに持ち、
+                    # valueにはsolution_idとquestion_idが一致するfeature.valueを足し続ける。
+                    # 1.0（ハイ）と-1.0（イイエ）が混在するquestion（valueが0.0に近い）ということは、その質問の回答によって選択肢が多く絞り込まれる。
+                end
+            end
+            q_score_table.each do |key, value|
+                q_score_table[key] = value.abs
+            end
+            # q_score_tableのvalueを絶対値に。valueが大きい→その質問に対して選択肢は似た回答を持つ→その質問をしてもあまり絞り込めない、となる連想配列が完成
+            p ("[select_next_question] q_score_table=> #{q_score_table}")
+            next_q_id = q_score_table.key(q_score_table.values.min{|x, y| x <=> y})
+            # 最も絶対値が小さいquestionということは、その質問の回答が分かれる→その質問の回答によって選択肢が多く絞り込まれる。
+            # rubyのmin,maxは、hashの場合、x=>[key,value], y=>[key,value] hash.eachだと、|x, y|と書くと、x=>key, y=>valueなのに…
+            return Question.find(next_q_id)
+            # Questionインスタンスのキーが、next_q_idに合致する行を取得。（プライマリーキーであるidで照合しているっぽい？）
         end
-        q_score_table.each do |key, value|
-            q_score_table[key] = value.abs
-        end
-        # q_score_tableのvalueを絶対値に。valueが大きい→その質問に対して選択肢は似た回答を持つ→その質問をしてもあまり絞り込めない、となる連想配列が完成
-        p ("[select_next_question] q_score_table=> #{q_score_table}")
-        next_q_id = q_score_table.key(q_score_table.values.min{|x, y| x <=> y})
-        # 最も絶対値が小さいquestionということは、その質問の回答が分かれる→その質問の回答によって選択肢が多く絞り込まれる。
-        # rubyのmin,maxは、hashの場合、x=>[key,value], y=>[key,value] hash.eachだと、|x, y|と書くと、x=>key, y=>valueなのに…
-        return Question.find(next_q_id)
-        # Questionインスタンスのキーが、next_q_idに合致する行を取得。（プライマリーキーであるidで照合しているっぽい？）
+
     end
 
     # UserStatusを更新してsave
@@ -401,7 +406,7 @@ class AkinatorController < ApplicationController
             if can_decide(s_score_table, old_s_score_table).blank?
                 # s_score_tableとold_s_score_tableを比較したりして、選択肢が変わった場合（返り値がtrueで無い場合）
                 question = select_next_question(user_status.progress)
-                if question.id == user_status.progress.questions.last.id
+                if question.nil? || question.id == user_status.progress.questions.last.id
                     most_likely_solution = guess_solution(s_score_table)
                     # 現在のs_score_tanleを引数に、最もAnswersとFeatureが近いSolutionを取得して代入
                     question_message = "思い浮かべているのは\n\n" + most_likely_solution.name + "\n\nですか?"
@@ -460,17 +465,28 @@ class AkinatorController < ApplicationController
     def handle_resuming(user_status, message)
         if message == "はい"
             # 外したが、続ける場合
-            Solution.in_batches do |solution|
-                # UserStatusのProgressのcandidatesをSolutionのインスタンスを全てにする
-                # つまり、これまでの回答で絞り込んだcandidatesを選択肢全てにする
-                user_status.progress.solutions << solution
-            end
-            # UserStatusのProgressのcandidatesをSolutionのインスタンスを全てにする
-            # つまり、これまでの回答で絞り込んだcandidatesを選択肢全てにする
+            # Solution.in_batches do |solution|
+            #     # UserStatusのProgressのcandidatesをSolutionのインスタンスを全てにする
+            #     # つまり、これまでの回答で絞り込んだcandidatesを選択肢全てにする
+            #     user_status.progress.solutions << solution
+            # end
             question = select_next_question(user_status.progress)
-            reply_content = set_confirm_template(question.message)
-            save_status(user_status, new_status: 'asking', next_question: question)
-            # GamestateをAskingにする。next_questionもある。
+
+            if question.nil?
+                items = []
+                user_status.progress.solutions.first(5).each do |s|
+                    items.push(s.name)
+                end
+                # reply_content用にitemsを用意。中身はこれまでで絞り込んだcandidatesを順に5個まで
+                reply_content = simple_text("質問がなくなってしまいました…。\n以下の中に食べたいものがあったらその名前を打って教えて下さい！\n\n#{items.join("\n")}")
+                save_status(user_status, new_status: 'begging')
+                # user_status.statusをbeggingに更新
+            else
+                reply_content = set_confirm_template(question.message)
+                save_status(user_status, new_status: 'asking', next_question: question)
+                # GamestateをAskingにする。next_questionもある。
+            end
+
         elsif message == "いいえ"
             # 外して、続けない場合
             items = []
@@ -478,7 +494,7 @@ class AkinatorController < ApplicationController
                 items.push(s.name)
             end
             # reply_content用にitemsを用意。中身はこれまでで絞り込んだcandidatesを順に5個まで
-            reply_content = simple_text("じゃあ、以下の中に食べたいものがあったらその名前を打って教えて下さい！\n#{items.join("\n")}")
+            reply_content = simple_text("じゃあ、以下の中に食べたいものがあったらその名前を打って教えて下さい！\n\n#{items.join("\n")}")
             save_status(user_status, new_status: 'begging')
             # user_status.statusをbeggingに更新
         else
@@ -513,7 +529,7 @@ class AkinatorController < ApplicationController
             # user_status.statusをregisteringに変更
             reply_content = set_butten_template(
                 altText: "ごめんなさい。。。",
-                title: "分かりませんでした…。今食べたいものがあったら打って教えて下さい。\n無ければ「終了」を押してね…。",
+                title: "分かりませんでした…。\n今食べたいものがあったら打って教えて下さい。\n無ければ「終了」を押してね…。",
                 text: "終了"
             )
         end
@@ -533,7 +549,7 @@ class AkinatorController < ApplicationController
         # これでprepared_solutionとprogressが関連づいた？
         save_status(user_status, new_status: 'confirming')
         # user_status.statusをconfirmingに更新
-        reply_content = set_confirm_template("思い浮かべていたのは\n\n#{mesasge}\n\nでいいですか？")
+        reply_content = set_confirm_template("思い浮かべていたのは\n\n#{message}\n\nでいいですか？")
         return reply_content
     end
 
@@ -567,7 +583,7 @@ class AkinatorController < ApplicationController
             reply_content = simple_text("ありゃ、もう一度食べたいものを教えて下さい")
         else
             # それ以外のmessageが来た場合
-            reply_content = set_confirm_template("思い浮かべていたのは\n\n#{mesasge}\n\nでいいですか？")
+            reply_content = set_confirm_template("思い浮かべていたのは\n\n#{message}\n\nでいいですか？")
             # GameStateは更新せず、同じことを繰り返す
         end
         return reply_content
