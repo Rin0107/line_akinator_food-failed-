@@ -1,5 +1,7 @@
 class AkinatorController < ApplicationController
     protect_from_forgery except: [:food]
+
+    require 'uri'
     
     def reply_content(event, messages)
         rep = client.reply_message(
@@ -373,6 +375,25 @@ class AkinatorController < ApplicationController
         return reply_content
     end
 
+    def set_butten_uri_template(text: ,uri:)
+        reply_content = {
+            type: 'template',
+            altText: "検索結果",
+            template: {
+                type: 'buttons',
+                text: text,
+                actions: [
+                    {
+                    type: 'uri',
+                    label: "検索結果（グーグル検索）",
+                    uri: "https://www.google.com/search?" + uri
+                    }
+                ]
+            }
+        }
+        return reply_content
+    end
+
     # GameStatusがPendingの場合akinator_handlerで呼び出されるメソッド、引数はUserStatus, message、返り値は配列[(text, items)]
     def handle_pending(user_status, message)
         if message == "はじめる"
@@ -452,7 +473,9 @@ class AkinatorController < ApplicationController
     def handle_guessing(user_status, message)
         if message == "はい"
             # most_likely_solutionが当たった場合
-            reply_content = simple_text("じゃあ、それ食べに行こう！")
+            s_score_table = gen_solution_score_table(user_status.progress)
+            most_likely_solution = guess_solution(s_score_table)
+            reply_content = set_butten_uri_template(text:"じゃあ、食べたいものを現在地で検索するね！\n（LINEの設定により、正確な現在地ではない可能性があります。）", uri: URI.encode_www_form([["q", "#{most_likely_solution.name} 現在地"]]))
             update_features(user_status.progress)
             # 正解の選択肢が見つかったので、その選択肢のFeature.valueを今回の回答に更新し、新しくQuestionとFeatureがあった場合は新規作成
             reset_status(user_status)
@@ -529,7 +552,8 @@ class AkinatorController < ApplicationController
             # 今回のAnswerとUserStatusのprogressを全て削除
             save_status(user_status, new_status: 'pending')
             # GameStateをPendingに更新
-            reply_content = simple_text("教えてくれてありがとう、じゃあそれ食べに行こう！")
+            reply_content = set_butten_uri_template(text:"教えてくれてありがとう！\nじゃあ、食べたいものを現在地で検索するね！\n（LINEの設定により、正確な現在地ではない可能性があります。）", uri: URI.encode_www_form([["q", "#{true_solution.name} 現在地"]]))
+            p URI.decode_www_form({"q"=>"#{true_solution.name}"})
         else
             # 当てはまらなかった場合
             save_status(user_status, new_status: 'pending')
