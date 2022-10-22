@@ -6,6 +6,13 @@
 #   movies = Movie.create([{ name: 'Star Wars' }, { name: 'Lord of the Rings' }])
 #   Character.create(name: 'Luke', movie: movies.first)
 
+if add_solutions.present?
+    add_solutions.each do |s|
+        solution = {name: s}
+        Solution.create!(solution)
+    end
+end
+
 if add_questions.present? && add_features_matrix.present?
     solutions = Solution.all
 
@@ -899,9 +906,3 @@ case ENV["SECTION"]
         ]
 end
 
-if add_solutions.present?
-    add_solutions.each do |s|
-        solution = {name: s}
-        Solution.create!(solution)
-    end
-end
