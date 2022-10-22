@@ -1,8 +1,5 @@
 class AkinatorController < ApplicationController
     protect_from_forgery except: [:food]
-
-    def index
-    end
     
     def reply_content(event, messages)
         rep = client.reply_message(
