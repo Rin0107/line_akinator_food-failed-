@@ -553,7 +553,6 @@ class AkinatorController < ApplicationController
             save_status(user_status, new_status: 'pending')
             # GameStateをPendingに更新
             reply_content = set_butten_uri_template(text:"教えてくれてありがとう！\nじゃあ、食べたいものを現在地で検索するね！\n（LINEの設定により、正確な現在地ではない可能性があります。）", uri: URI.encode_www_form([["q", "#{true_solution.name} 現在地"]]))
-            p URI.decode_www_form({"q"=>"#{true_solution.name}"})
         else
             # 当てはまらなかった場合
             save_status(user_status, new_status: 'pending')
