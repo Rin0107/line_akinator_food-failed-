@@ -105,6 +105,7 @@ GEM
     nio4r (2.5.8)
     nokogiri (1.13.8-x64-mingw32)
       racc (~> 1.4)
+    pg (1.4.5-x64-mingw32)
     public_suffix (5.0.0)
     puma (3.12.6)
     racc (1.6.0)
@@ -201,11 +202,12 @@ DEPENDENCIES
   duktape
   jbuilder (~> 2.5)
   line-bot-api
+  pg
   puma (~> 3.11)
   rails (~> 5.2.8, >= 5.2.8.1)
   sass-rails (~> 5.0)
   selenium-webdriver
-  sqlite3
+  sqlite3 (~> 1.4)
   turbolinks (~> 5)
   tzinfo-data
   uglifier (>= 1.3.0)
