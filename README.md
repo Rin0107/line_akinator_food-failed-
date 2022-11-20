@@ -1,24 +1,5 @@
 # README
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+LINE Botで食べたいものを当てるアキネーターみたいなのを作った。
 
-Things you may want to cover:
-
-* Ruby version
-
-* System dependencies
-
-* Configuration
-
-* Database creation
-
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
+参考元：https://github.com/tanacchi/line_akinator （参考元はpythonで記述。作者様からは参考にした上で作成する許可を頂いております。tanacchi様、ご承諾頂きありがとうございます。）
