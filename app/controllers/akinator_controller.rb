@@ -2,6 +2,9 @@ class AkinatorController < ApplicationController
     protect_from_forgery except: [:food]
 
     require 'uri'
+
+    def index
+    end
     
     def reply_content(event, messages)
         rep = client.reply_message(
