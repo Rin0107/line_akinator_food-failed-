@@ -5,3 +5,4 @@ LINE Botで食べたいものを当てるアキネーターみたいなのを作
 
 2022/11/27追記
 デプロイ時にうまくいかなかったので、新しく作り直しました。
+https://github.com/Rin0107/line_akinator_food_2
